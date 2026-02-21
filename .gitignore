@@ -1,0 +1,13 @@
+# Log files
+error.log
+
+# Report files
+Report_*.json
+
+# Scratch files
+debug_stats.json
+test_changes.json
+test_changes.ps1
+
+# VS Code directory (optional, but a good practice)
+.vscode/

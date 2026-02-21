@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>TraderSynth v3.7.0 - Analytics Pro</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@600;800&display=swap"
+        rel="stylesheet">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>TRS</text></svg>">
+</head>
+
+<body class="dark-theme">
+    <svg style="width:0; height:0; position:absolute;">
+        <defs>
+            <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:var(--accent-blue); stop-opacity:0.4" />
+                <stop offset="100%" style="stop-color:var(--accent-blue); stop-opacity:0" />
+            </linearGradient>
+            <linearGradient id="healthGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#00d2ff" />
+                <stop offset="100%" style="stop-color:#30d158" />
+            </linearGradient>
+            <filter id="neonGlow">
+                <feGaussianBlur stdDeviation="2.5" result="blur"></feGaussianBlur>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+            </filter>
+        </defs>
+    </svg>
+
+
+    <div class="content-stack">
+        <div class="view-viewport">
+            <div id="view-dash" class="view-page-container">
+                <div class="dash-layout">
+                    <!-- Hero Surface -->
+                    <div class="hero-glass-surface">
+                        <div class="hero-col">
+                            <div style="display:flex; align-items:flex-end; gap:20px;">
+                                <div>
+                                    <div id="uptime-display"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:2.4rem; line-height:1; color:#fff;">
+                                        --:--:--</div>
+                                    <div
+                                        style="font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:5px; font-weight:800;">
+                                        Uptime (H:M:S)</div>
+                                </div>
+                                <div style="margin-left:auto; text-align:right;">
+                                    <div id="sim-status-indicator" class="status-neon-green"
+                                        style="font-weight:900; font-size:1rem; margin-bottom:2px;">LIVE</div>
+                                    <div
+                                        style="font-size:0.5rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; font-weight:700;">
+                                        ENGINE ACTIVE
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                style="margin-top:10px; font-size:0.55rem; color:var(--text-dim); display:flex; gap:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:8px;">
+                                <div><span style="opacity:0.6">ENGINE PID:</span> <span id="engine-pid-val"
+                                        style="color:#fff">--</span></div>
+                                <div title="Combined overhead of PowerShell engine"><span
+                                        style="color:var(--accent-blue)">CPU:</span> <span
+                                        id="engine-cpu-val">--%</span> | <span
+                                        style="color:var(--accent-green)">RAM:</span> <span id="engine-ram-val">--
+                                        MB</span></div>
+                            </div>
+                            <div
+                                style="margin-top:4px; font-size:0.55rem; color:var(--text-dim); display:flex; gap:15px;">
+                                <div><span style="opacity:0.6">BROWSER PID:</span> <span id="browser-pid-val"
+                                        style="color:#fff">--</span></div>
+                                <div title="Combined overhead of browser + child processes"><span
+                                        style="color:var(--accent-blue)">CPU:</span> <span
+                                        id="browser-cpu-val">--%</span> | <span
+                                        style="color:var(--accent-green)">RAM:</span> <span id="browser-ram-val">--
+                                        MB</span></div>
+                            </div>
+                            <button onclick="quitApp()"
+                                style="margin-top:12px; background:rgba(255,55,95,0.2); border:1px solid var(--accent-red); color:var(--accent-red); padding:5px 15px; font-weight:700; font-size:0.6rem; border-radius:6px; cursor:pointer;">
+                                [X] QUIT ENGINE
+                            </button>
+                        </div>
+
+                        <div class="hero-col-large">
+                            <div class="health-block-vertical"
+                                style="min-width:130px; padding:15px; border-radius:24px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05);">
+                                <div id="health-score-text"
+                                    style="font-family:'Outfit'; font-weight:800; font-size:3.5rem; line-height:1; transition: color 0.5s ease;">
+                                    --</div>
+                                <div
+                                    style="font-size:0.6rem; opacity:0.6; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin-top:5px;">
+                                    Health Score <span class="info-bubble" onclick="showDef('health')">?</span></div>
+                            </div>
+                            <div style="flex:1;">
+                                <div
+                                    style="font-size:0.7rem; color:#fff; display:grid; grid-template-columns:auto 1fr; gap:6px 20px; font-weight:700;">
+                                    <span style="opacity:0.4;">OS:</span> <span id="profile-os"
+                                        style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">--</span>
+                                    <span style="opacity:0.4;">CPU:</span> <span id="profile-cpu"
+                                        style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">--</span>
+                                    <span style="opacity:0.4;">RAM:</span> <span id="profile-ram"
+                                        style="opacity:0.8;">--</span>
+                                    <span style="opacity:0.4;">MONITORS:</span> <span id="profile-displays"
+                                        style="opacity:0.8; font-weight:800; color:var(--accent-blue);">--</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hero-col">
+                            <div class="card-label-small" style="margin-bottom:8px; font-size:0.6rem;">Graphics Pipeline
+                            </div>
+                            <div style="font-family:'Inter'; font-weight:800; font-size:0.85rem; color:#fff; opacity:0.8; margin-bottom:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
+                                id="gpu-name">Detecting GPU...</div>
+                            <div style="display:flex; align-items:flex-end; gap:15px;">
+                                <div id="gpu-usage-val"
+                                    style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; color:var(--accent-blue);">
+                                    --%</div>
+                                <div style="flex:1; padding-bottom:3px;">
+                                    <div
+                                        style="display:flex; justify-content:space-between; font-size:0.5rem; color:var(--text-dim); margin-bottom:3px;">
+                                        <span>ENC: <span id="gpu-enc-val">0%</span></span>
+                                        <span>DEC: <span id="gpu-dec-val">0%</span></span>
+                                    </div>
+                                    <div class="gpu-eng-bar-container" style="height:3px;">
+                                        <div id="gpu-enc-bar" class="gpu-eng-fill"
+                                            style="width:0%; background:#00d2ff;"></div>
+                                        <div id="gpu-dec-bar" class="gpu-eng-fill"
+                                            style="width:0%; background:#30d158;"></div>
+                                    </div>
+                                    <div id="gpu-top-3" class="mini-consumer-list" style="margin-top:8px;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hero-col" id="citrix-hdx-card"
+                            style="flex:1.2; padding-left:30px; border-right:none; display:none;">
+                            <div class="card-upper-row" style="margin-bottom: 5px;">
+                                <span class="card-label-small" style="font-size: 0.55rem;">HDX Protocol</span>
+                                <span id="hdx-transport-mode" class="status-dim" style="font-size: 0.55rem;">TCP</span>
+                            </div>
+                            <div id="ica-adapter-name"
+                                style="font-size:0.5rem; color:var(--text-dim); margin-top:-2px; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.6;">
+                                Detecting Adapter...</div>
+                            <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:15px; margin-bottom:10px;">
+                                <div>
+                                    <div id="ica-latency-val"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; color:var(--accent-blue); line-height:1;">
+                                        --ms</div>
+                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;">LATENCY</div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div id="ica-fps-val"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; color:var(--accent-blue); line-height:1;">
+                                        --fps</div>
+                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;"
+                                        title="FPS is N/A in Network mode because generic OS counters do not track protocol-specific frame delivery.">
+                                        VISUAL FPS
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="net-spark-wrapper" style="height:35px; margin-bottom:10px; position:relative;">
+                                <svg id="net-spark-svg"
+                                    style="width:100%; height:100%; display:block; overflow:visible;"
+                                    preserveAspectRatio="none" viewBox="0 0 300 100">
+                                    <path id="net-in-path"
+                                        style="fill:none; stroke:var(--accent-blue); stroke-width:3; opacity:0.8;">
+                                    </path>
+                                    <path id="net-out-path"
+                                        style="fill:none; stroke:var(--accent-green); stroke-width:3; opacity:0.8;">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div
+                                style="margin-top:8px; font-size:0.55rem; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
+                                <div style="color:var(--text-dim);">
+                                    DELAY: <span id="ica-input-delay" style="color:#fff; font-weight:700;">--</span>ms
+                                </div>
+                                <div style="color:var(--text-dim);">
+                                    <span style="color:var(--accent-blue);">IN:</span> <span id="ica-bw-in">--</span>
+                                    <span style="color:var(--accent-green);">OUT:</span> <span id="ica-bw-out">--</span>
+                                    KB/s
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <!-- Metrics Grid (4x2 Unified Layout) -->
+                    <div class="dash-master-unified">
+
+                        <!-- ROW 1: Core Telemetry -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <div class="card-label-small">Processor Dynamics <span class="info-bubble"
+                                        onclick="showDef('cpu')">?</span></div>
+                                <div id="cpu-usage-percent" class="val-big-display">--%</div>
+                            </div>
+                            <div class="spark-canvas-wrapper">
+                                <svg id="cpu-spark-svg" class="spark-canvas" preserveAspectRatio="none"
+                                    viewBox="0 0 300 100">
+                                    <path class="spark-fill" d=""></path>
+                                    <path class="spark-path" d=""></path>
+                                </svg>
+                            </div>
+                            <div id="cpu-core-grid" class="core-heat-grid"></div>
+                            <div
+                                style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:0.55rem; font-weight:700; color:var(--text-dim);">
+                                <div>WAIT: <span id="cpu-queue-val" style="color:#fff;">0</span></div>
+                                <div>KRNQ: <span id="cpu-kernel-val" style="color:#fff;">0%</span></div>
+                                <div>CTX: <span id="cpu-ctx-val" style="color:#fff;">0</span></div>
+                                <div id="cs-impact-box"
+                                    style="display:flex; align-items:center; gap:4px; grid-column: span 2; margin-top:2px;">
+                                    <span style="opacity:0.5;">SATURATION:</span>
+                                    <div id="cs-impact-grid" style="display:flex; gap:2px;">
+                                        <div class="cs-dot"
+                                            style="width:6px; height:6px; background:rgba(255,255,255,0.1); border-radius:1px;">
+                                        </div>
+                                        <div class="cs-dot"
+                                            style="width:6px; height:6px; background:rgba(255,255,255,0.1); border-radius:1px;">
+                                        </div>
+                                        <div class="cs-dot"
+                                            style="width:6px; height:6px; background:rgba(255,255,255,0.1); border-radius:1px;">
+                                        </div>
+                                        <div class="cs-dot"
+                                            style="width:6px; height:6px; background:rgba(255,255,255,0.1); border-radius:1px;">
+                                        </div>
+                                        <div class="cs-dot"
+                                            style="width:6px; height:6px; background:rgba(255,255,255,0.1); border-radius:1px;">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>JITR: <span id="gpu-jitter-val" style="color:var(--accent-blue);">--</span></div>
+                            </div>
+                        </div>
+
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <div class="card-label-small">Memory Pressure <span class="info-bubble"
+                                        onclick="showDef('mem')">?</span></div>
+                                <div id="mem-usage-percent" class="val-big-display">--%</div>
+                            </div>
+                            <div class="spark-canvas-wrapper">
+                                <svg id="mem-spark-svg" class="spark-canvas" preserveAspectRatio="none"
+                                    viewBox="0 0 300 100">
+                                    <path class="spark-fill" d=""></path>
+                                    <path class="spark-path" d=""></path>
+                                </svg>
+                            </div>
+                            <div id="mem-available-box"
+                                style="margin-top:15px; text-align:right; font-size:0.7rem; color:var(--text-dim); font-weight:700;">
+                                --</div>
+                            <div id="mem-top-3" class="mini-consumer-list"
+                                style="margin-top:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px;">
+                            </div>
+                        </div>
+
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small">Storage IOPS</span>
+                                <span id="disk-tp-box" class="val-big-display">--</span>
+                            </div>
+                            <div class="spark-canvas-wrapper">
+                                <svg id="disk-spark-svg" class="spark-canvas" preserveAspectRatio="none"
+                                    viewBox="0 0 300 100">
+                                    <path class="spark-fill" d=""></path>
+                                    <path class="spark-path" d=""></path>
+                                </svg>
+                            </div>
+                            <div style="margin-top:12px; display:flex; justify-content:space-between;">
+                                <div id="disk-lat-box"
+                                    style="font-size:0.65rem; color:var(--text-dim); font-weight:700;">LATENCY: --</div>
+                                <div id="disk-queue-box"
+                                    style="font-size:0.65rem; color:var(--text-dim); font-weight:700;">QUEUE: --</div>
+                            </div>
+                            <div style="margin-top:4px; display:flex; justify-content:space-between; opacity:0.6;">
+                                <div id="disk-read-iops" style="font-size:0.55rem;">R: --</div>
+                                <div id="disk-write-iops" style="font-size:0.55rem;">W: --</div>
+                            </div>
+                        </div>
+
+                        <div class="metric-glass-card" id="openfin-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small">Runtime Stability</span>
+                                <span id="ofin-health-tag" class="status-neon-green" style="font-size:0.6rem;">100%
+                                    HEALTH</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:15px;">
+                                <div>
+                                    <div id="ofin-renderers" style="font-size:1.1rem; font-weight:800; color:#fff;">--
+                                    </div>
+                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">RENDERERS</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div id="ofin-ram"
+                                        style="font-size:0.9rem; font-weight:700; color:var(--accent-blue);">-- MB</div>
+                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">RAM</div>
+                                </div>
+                            </div>
+                            <div id="ofin-rvm-details"
+                                style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:none;">
+                            </div>
+                            <div id="ofin-hot-box"
+                                style="margin-top:10px; padding:6px; background:rgba(255,255,255,0.03); border-radius:6px; display:none;">
+                                <div class="card-label-small"
+                                    style="font-size:0.5rem; color:var(--accent-red); margin-bottom:2px;">HOT RENDERER
+                                </div>
+                                <div
+                                    style="display:flex; justify-content:space-between; font-size:0.65rem; font-weight:700;">
+                                    <span id="ofin-hot-id" style="color:#fff;">PID --</span>
+                                    <span id="ofin-hot-cpu" style="color:var(--accent-red);">--%</span>
+                                </div>
+                            </div>
+                            <div id="ofin-flags" style="margin-top:10px; display:flex; gap:4px; flex-wrap:wrap;"></div>
+
+                            <!-- Descriptive Text for New Capabilities -->
+                            <div
+                                style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); font-size:0.55rem; color:var(--text-dim); line-height:1.4;">
+                                <div style="margin-bottom:4px; display:flex; gap:6px;">
+                                    <span style="color:var(--accent-blue); font-weight:700;">CPU Affinity:</span>
+                                    <span>Blue borders on CPU Grid indicate cores allowed for OpenFin.</span>
+                                </div>
+                                <div style="display:flex; gap:6px;">
+                                    <span style="color:var(--accent-green); font-weight:700;">Efficiency:</span>
+                                    <span>Measures thread load balance. Low score indicates single-core
+                                        bottleneck.</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-glass-card" id="vmware-health-card" style="display:none;">
+                            <div class="card-upper-row">
+                                <span class="card-label-small">VMware Guest Health</span>
+                                <span id="vm-hypervisor-tag" class="status-neon-green" style="font-size:0.6rem;">VMWARE
+                                    TOOLS ACTIVE</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:20px;">
+                                <div>
+                                    <div id="vm-ready-val" class="val-big-display" style="font-size:1.4rem;">-- %</div>
+                                    <div class="card-label-small" style="font-size:0.55rem;">CPU Ready Time</div>
+                                </div>
+                                <div>
+                                    <div id="vm-balloon-val" class="val-big-display" style="font-size:1.4rem;">-- MB
+                                    </div>
+                                    <div class="card-label-small" style="font-size:0.55rem;">Mem Ballooning</div>
+                                </div>
+                                <div style="margin-top:10px;">
+                                    <div id="vm-costop-val" style="font-size:1.1rem; font-weight:800; color:#fff;">-- %
+                                    </div>
+                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">Co-Stop Time
+                                    </div>
+                                </div>
+                                <div style="margin-top:10px; text-align:right;">
+                                    <div id="vm-swap-val"
+                                        style="font-size:1.1rem; font-weight:800; color:var(--accent-red);">-- MB</div>
+                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">Swapped Memory
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top:10px; font-size:0.55rem; color:var(--text-dim); line-height:1.2;">
+                                Ready Time > 10% indicates hypervisor CPU contention (Steal Time). Any Ballooning
+                                indicates host memory pressure.
+                            </div>
+                        </div>
+
+
+                        <!-- ROW 2: Deep Analytics (Formerly Sidebar) -->
+                        <div class="metric-glass-card">
+                            <div class="card-label-small" style="margin-bottom:15px; color:var(--accent-blue);">CPU Top
+                                Consumers</div>
+                            <div id="process-grid-target" class="scroller-y-auto"
+                                style="height:140px; overflow-y:auto; padding-right:5px;"></div>
+                        </div>
+
+                        <div class="metric-glass-card">
+                            <div class="card-label-small" style="margin-bottom:15px; color:#fff;">Thread Saturation Rank
+                            </div>
+                            <div id="thread-grid-target" class="scroller-y-auto"
+                                style="height:140px; overflow-y:auto; padding-right:5px;"></div>
+                        </div>
+
+                        <div class="metric-glass-card">
+                            <div class="card-label-small" style="margin-bottom:15px; color:var(--accent-red);">Zombie
+                                Surveillance <span class="info-bubble" onclick="showDef('zombie')">?</span></div>
+                            <div id="zombie-monitor-sidebar" style="background:transparent; border:none; padding:0;">
+                                <div style="font-size:0.75rem; font-weight:800; color:var(--text-dim);">Scanning...
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-glass-card">
+                            <div class="card-label-small" style="margin-bottom:15px; color:#ffcc00;">Event Log
+                                Surveillance</div>
+                            <div id="event-log-target" class="scroller-y-auto"
+                                style="height:140px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;">
+                                <div style="opacity:0.3; font-size:0.6rem;">No Recent Critical Events</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- System Changes (NEW) -->
+                    <div class="metric-glass-card" style="margin-top:20px;">
+                        <div class="card-upper-row">
+                            <span class="card-label-small" style="color:var(--accent-blue);">System Changes (Last 5
+                                Days)</span>
+                            <span id="changes-count-badge" class="status-dim" style="font-size: 0.6rem;">0
+                                UPDATES</span>
+                        </div>
+                        <div id="system-changes-target" class="scroller-y-auto"
+                            style="height:160px; overflow-y:auto; margin-top:10px; padding-right:5px; display:flex; flex-direction:column; gap:6px;">
+                            <div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:40px;">Fetching
+                                recent updates...</div>
+                        </div>
+                    </div>
+
+                    <!-- Forensics & Trace Views -->
+                    <div id="view-forensics" class="view-page-container" style="display:none; padding:40px;">
+                        <div class="card-label-small"
+                            style="margin-bottom:25px; font-size:1rem; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:15px;">
+                            Advanced Forensic Analytics & Scheduling Stability
+                        </div>
+                        <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
+                            <div class="metric-glass-card">
+                                <div class="card-label-small" style="margin-bottom:20px; color:var(--accent-red);">
+                                    Zombie Process Detection (Dead/Idle)</div>
+                                <div id="zombie-list-target" style="font-size:0.75rem;">
+                                    <p style="text-align:center; color:#444; padding-top:40px;">No zombie processes
+                                        detected.</p>
+                                </div>
+                            </div>
+                            <div class="metric-glass-card">
+                                <div class="card-label-small" style="margin-bottom:20px;">Live Forensic Risk Factors
+                                </div>
+                                <div id="risk-factors-detailed"
+                                    style="font-size:0.8rem; color:var(--text-dim); line-height:2;">
+                                    Aggregating real-time hazard markers...
+                                </div>
+                            </div>
+                        </div>
+                        <div class="metric-glass-card" style="margin-top:30px;">
+                            <div class="card-label-small" style="margin-bottom:20px; color:var(--accent-blue);">
+                                Thread-Level Saturation Trace</div>
+                            <div id="forensic-thread-grid"
+                                style="display:grid; grid-template-columns: repeat(2, 1fr); gap:15px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="app-footer-strip">
+                    <div class="footer-segment">
+                        <span class="footer-tag">STATUS:</span> <span
+                            class="footer-val status-neon-green">NOMINAL</span>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <span class="footer-tag">ENGINE:</span> <span class="footer-val">CIM V5.20</span>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <span class="footer-tag">LICENSE:</span> <span class="footer-val"
+                            style="color:var(--accent-blue)">PROFESSIONAL VVD-ENT</span>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <button onclick="generateReport()" id="report-btn"
+                            style="background:rgba(0,210,255,0.1); border:1px solid var(--accent-blue); color:var(--accent-blue); padding:4px 12px; font-weight:700; font-size:0.6rem; border-radius:4px; cursor:pointer; vertical-align:middle;">
+                            GENERATE FORENSIC REPORT
+                        </button>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <input type="file" id="report-input" style="display:none;" accept=".json"
+                            onchange="handleReportFile(this)">
+                        <button onclick="document.getElementById('report-input').click()"
+                            style="background:rgba(255,255,255,0.05); border:1px solid var(--border-edge); color:#fff; padding:4px 12px; font-weight:700; font-size:0.6rem; border-radius:4px; cursor:pointer; vertical-align:middle;">
+                            OPEN REPORT
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Definition Modal -->
+            <div id="info-modal" class="modal-surface" style="display:none;">
+                <div class="modal-glass-content">
+                    <h2 id="modal-title" style="margin-bottom:20px; font-family:'Outfit';">DEFINITION</h2>
+                    <div id="modal-body"
+                        style="font-size:0.9rem; line-height:1.6; color:var(--text-dim); margin-bottom:30px;">
+                        Providing technical context for advanced telemetry.
+                    </div>
+                    <button class="modal-close-btn"
+                        onclick="document.getElementById('info-modal').style.display='none'">DISMISS</button>
+                </div>
+            </div>
+
+            <!-- Stylized Event Popup -->
+            <div id="event-popup" class="event-popup-modal">
+                <h3 id="ev-pop-title" style="color:var(--accent-blue); margin-top:0;">EVENT DETAIL</h3>
+                <div id="ev-pop-body"
+                    style="font-family:'Inter'; font-size:0.9rem; line-height:1.6; color:#e0e0e0; margin:20px 0;"></div>
+                <div style="text-align:right;">
+                    <button class="modal-close-btn"
+                        onclick="document.getElementById('event-popup').style.display='none'"
+                        style="background:rgba(255,255,255,0.1); border:none; padding:8px 20px; color:#fff; cursor:pointer; border-radius:6px;">CLOSE</button>
+                </div>
+            </div>
+
+            <!-- Custom Purge Modal -->
+            <div id="purge-modal" class="modal-surface" style="display:none;">
+                <div class="modal-glass-content" style="border-color:var(--accent-red);">
+                    <h2 style="margin-bottom:10px; font-family:'Outfit'; color:var(--accent-red);">PURGE COMMAND</h2>
+                    <div style="margin-bottom:20px; font-size:0.85rem; color:var(--text-dim);">Are you sure you want to
+                        terminate this process? This will immediately stop execution.</div>
+
+                    <div
+                        style="background:rgba(255,255,255,0.03); padding:15px; border-radius:12px; margin-bottom:25px; text-align:left; border:1px solid rgba(255,55,95,0.1);">
+                        <div
+                            style="font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">
+                            Target Identification</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span id="purge-target-name"
+                                style="font-weight:800; font-size:1.1rem; color:#fff;">--</span>
+                            <span id="purge-target-pid"
+                                style="font-family:monospace; color:var(--accent-red); font-weight:700;">PID --</span>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:15px;">
+                        <button onclick="closePurgeModal()"
+                            style="flex:1; background:rgba(255,255,255,0.1); color:#fff; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">CANCEL</button>
+                        <button onclick="executePurge()"
+                            style="flex:1; background:var(--accent-red); color:#fff; border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer; box-shadow:0 10px 20px rgba(255,55,95,0.2);">YES,
+                            PURGE</button>
+                    </div>
+                </div>
+            </div>
+
+            <script src="storage.js"></script>
+            <script src="app.js?v=debug20"></script>
+</body>
+
+</html>

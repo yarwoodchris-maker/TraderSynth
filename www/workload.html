@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Trader Workload Simulation</title>
+    <style>
+        body {
+            background: #000;
+            color: #fff;
+            margin: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #333;
+        }
+
+        .ticker-tape {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30px;
+            background: #111;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            white-space: nowrap;
+            font-family: monospace;
+        }
+
+        .ticker-item {
+            padding: 0 20px;
+            color: #0f0;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 4 Dense Charts to simulate 2D GPU/CPU draw calls -->
+    <canvas id="c1"></canvas>
+    <canvas id="c2"></canvas>
+    <canvas id="c3"></canvas>
+    <canvas id="c4"></canvas>
+    <div class="ticker-tape" id="ticker"></div>
+
+    <script>
+        // generate heavy load
+        const canons = ['c1', 'c2', 'c3', 'c4'].map(id => document.getElementById(id));
+        const ctxs = canons.map(c => c.getContext('2d', { alpha: false }));
+
+        // Resize
+        function resize() {
+            canons.forEach(c => {
+                c.width = c.clientWidth;
+                c.height = c.clientHeight;
+            });
+        }
+        window.onresize = resize;
+        resize();
+
+        // Simulation State
+        const points = 200;
+        const series = canons.map(() => Array(points).fill(0).map(() => Math.random() * 100));
+
+        function drawChart(ctx, data, color) {
+            const w = ctx.canvas.width;
+            const h = ctx.canvas.height;
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, w, h);
+
+            // Grid
+            ctx.strokeStyle = '#222';
+            ctx.beginPath();
+            for (let i = 0; i < w; i += 50) { ctx.moveTo(i, 0); ctx.lineTo(i, h); }
+            for (let i = 0; i < h; i += 50) { ctx.moveTo(0, i); ctx.lineTo(w, i); }
+            ctx.stroke();
+
+            // Candles (simulated lines for speed, but intense count)
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            const step = w / points;
+            data.forEach((val, i) => {
+                const y = h - (val / 100 * h);
+                if (i === 0) ctx.moveTo(0, y);
+                else ctx.lineTo(i * step, y);
+            });
+            ctx.stroke();
+
+            // Fill area (transparency is expensive)
+            ctx.fillStyle = color + '33'; // hex alpha
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.fill();
+
+            // Render Text (expensive)
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px monospace';
+            ctx.fillText(`L: ${data[data.length - 1].toFixed(2)} Vol: ${(Math.random() * 1000).toFixed(0)}`, 10, 20);
+        }
+
+        function loop() {
+            // Update Data
+            series.forEach(s => {
+                s.shift();
+                let last = s[s.length - 1];
+                let change = (Math.random() - 0.5) * 5;
+                s.push(Math.max(0, Math.min(100, last + change)));
+            });
+
+            // Draw
+            drawChart(ctxs[0], series[0], '#00ff00');
+            drawChart(ctxs[1], series[1], '#ff0000');
+            drawChart(ctxs[2], series[2], '#0000ff');
+            drawChart(ctxs[3], series[3], '#ffff00');
+
+            // DOM Stress - Ticker
+            const t = document.getElementById('ticker');
+            // Force reflow/repaint
+            t.innerHTML = `<span class="ticker-item">AAPL ${(Math.random() * 200).toFixed(2)}</span>` +
+                `<span class="ticker-item">TSLA ${(Math.random() * 200).toFixed(2)}</span>` +
+                `<span class="ticker-item">NVDA ${(Math.random() * 200).toFixed(2)}</span>` +
+                `<span class="ticker-item">MSFT ${(Math.random() * 300).toFixed(2)}</span>` +
+                (Math.random() > 0.5 ? `<span style="color:red"> VIX 24.50</span>` : ``);
+
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+
+</html>
