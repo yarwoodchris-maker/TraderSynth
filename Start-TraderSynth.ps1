@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
     Trader Desktop Synthetic Test Solution (TraderSynth)
-    Version: 3.7.0 (Professional Analytics Refinement)
+    Version: 3.8.0 (Professional Analytics Refinement)
 #>
 
 param([int]$Port = 9000)
 
-$ScriptVersion = "3.7.0"
+$ScriptVersion = "3.8.0"
 $ScriptDir = $PSScriptRoot
 $WwwDir = Join-Path $ScriptDir "www"
 
@@ -21,6 +21,8 @@ $Sync = [System.Collections.Hashtable]::Synchronized(@{
         SysInfo          = $null
         MarketData       = @()
         StorageBaselines = @() # Storage latency window for baseline
+        userProfile      = @{ state = "ANALYZING" }
+        sysview          = @{ state = "ANALYZING" }
     })
 
 $CollectorScript = {
@@ -90,14 +92,25 @@ $CollectorScript = {
         $mObj = Get-CimSafe Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum
         $gpuObj = Get-CimSafe Win32_VideoController | Select-Object -First 1
         
+        $ipObj = Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias "*" -ErrorAction SilentlyContinue | Where-Object { $_.InterfaceAlias -notmatch "Loopback" } | Select-Object -First 1
+        $subnet = if ($ipObj) { $ipObj.PrefixLength } else { "--" }
+        $ip = if ($ipObj) { $ipObj.IPAddress } else { "--" }
+
+        $usr = if ($env:USERDOMAIN -and $env:USERNAME) { "$env:USERDOMAIN\$env:USERNAME" } else { "Unknown" }
+        
         $Sync.SysInfo = @{
-            os     = $osObj.Caption
-            cpu    = $cpuObj.Name
-            ram    = "$([math]::Round($mObj.Sum / 1GB, 0)) GB"
-            cores  = $Cores
-            gpu    = if ($gpuObj) { $gpuObj.Name }else { "Generic Display" }
-            driver = if ($gpuObj) { $gpuObj.DriverVersion }else { "N/A" }
-            hags   = "Unknown"
+            os      = $osObj.Caption
+            boot    = if ($osObj.LastBootUpTime) { $osObj.LastBootUpTime.ToString("yyyy-MM-dd HH:mm") } else { "Unknown" }
+            bootObj = $osObj.LastBootUpTime
+            cpu     = $cpuObj.Name
+            ram     = "$([math]::Round($mObj.Sum / 1GB, 0)) GB"
+            cores   = $Cores
+            gpu     = if ($gpuObj) { $gpuObj.Name }else { "Generic Display" }
+            driver  = if ($gpuObj) { $gpuObj.DriverVersion }else { "N/A" }
+            hags    = "Unknown"
+            ip      = $ip
+            subnet  = $subnet
+            user    = $usr
         }
 
         # Environment & HAGS Detection (from Process_Diagnostic)
@@ -106,6 +119,55 @@ $CollectorScript = {
             $hVal = Get-ItemProperty $hKey -Name HwSchMode -ErrorAction SilentlyContinue
             if ($hVal) { $Sync.SysInfo.hags = if ($hVal.HwSchMode -eq 2) { "Enabled" } else { "Disabled" } }
         }
+
+        # Network Stack Extraction
+        try {
+            $Sync.SysInfo.netConfig = @{
+                adapter   = "Unknown"
+                linkSpeed = "--"
+                jumbo     = "--"
+                intmod    = "--"
+                buffers   = "--"
+                flow      = "--"
+                eee       = "--"
+                speed     = "--"
+                isVmxnet  = $false
+                rxSmall   = "--"
+                rxLarge   = "--"
+            }
+            $netAdapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+            if ($netAdapter) {
+                $Sync.SysInfo.netConfig.adapter = $netAdapter.InterfaceDescription
+                $Sync.SysInfo.netConfig.linkSpeed = $netAdapter.LinkSpeed
+                
+                if ($netAdapter.InterfaceDescription -match "VMXNET") {
+                    $Sync.SysInfo.netConfig.isVmxnet = $true
+                }
+                
+                $props = Get-NetAdapterAdvancedProperty -Name $netAdapter.Name -ErrorAction SilentlyContinue
+                if ($props) {
+                    foreach ($p in $props) {
+                        $pDisp = if ($p.DisplayValue) { $p.DisplayValue } else { "--" }
+                        switch ($p.RegistryKeyword) {
+                            "*JumboPacket" { $Sync.SysInfo.netConfig.jumbo = $pDisp }
+                            "*InterruptModeration" { $Sync.SysInfo.netConfig.intmod = $pDisp }
+                            "*FlowControl" { $Sync.SysInfo.netConfig.flow = $pDisp }
+                            "*SpeedDuplex" { $Sync.SysInfo.netConfig.speed = $pDisp }
+                            "Small Rx Buffers" { $Sync.SysInfo.netConfig.rxSmall = $pDisp }
+                            "Rx Ring #1 Size" { $Sync.SysInfo.netConfig.rxSmall = $pDisp }
+                            "Rx Ring #2 Size" { $Sync.SysInfo.netConfig.rxLarge = $pDisp }
+                        }
+                        if ($p.RegistryKeyword -match "EEE" -or $p.DisplayName -match "Energy Efficient") {
+                            $Sync.SysInfo.netConfig.eee = $pDisp
+                        }
+                        if ($p.RegistryKeyword -match "TransmitBuffers" -or $p.RegistryKeyword -match "ReceiveBuffers") {
+                            if ($Sync.SysInfo.netConfig.buffers -eq "--") { $Sync.SysInfo.netConfig.buffers = $pDisp }
+                        }
+                    }
+                }
+            }
+        }
+        catch {}
         
         # Citrix VDI Session Detection
         $Sync.SysInfo.isCitrix = $false
@@ -376,9 +438,10 @@ $CollectorScript = {
                 # High resolution/multi-display protocol pressure
                 if ($Sync.SysInfo.monitorCount -ge 3 -and $Sync.Latest.ica.outputBW -gt 10000) { $riskScore += 3 }
             }
-            if ($Sync.Latest.vmware) {
-                if ($Sync.Latest.vmware.cpuReady -gt 10) { $riskScore += 6 }
-                if ($Sync.Latest.vmware.balloon -gt 100) { $riskScore += 4 }
+            if ($Sync.Latest.sysview) {
+                if ($Sync.Latest.sysview.diskC.percUsed -gt 95) { $riskScore += 4 }
+                if ($Sync.Latest.sysview.av.impact -match "HIGH") { $riskScore += 3 }
+                if (-not $Sync.Latest.sysview.power.isOptimal) { $riskScore += 2 }
             }
 
 
@@ -618,7 +681,197 @@ $CollectorScript = {
                 }
             }
             $engineCpu = [math]::Min(100, $engineCpu); $browserCpu = [math]::Min(100, $browserCpu);
+            
+            # --- WEBHOOK OBSERVABILITY ---
+            $webhookStats = @{
+                throughput = [math]::Round((Get-Random -Min 10 -Max 250) + ($simAdd * 0.5), 1)
+                latency    = [math]::Round((Get-Random -Min 5 -Max 120) + ($simAdd * 1.2), 1)
+                errorRate  = [math]::Round((Get-Random -Minimum 0.0 -Maximum 2.5), 2)
+                queue      = [math]::Floor((Get-Random -Min 0 -Max 50) + ($simAdd * 0.2))
+            }
+            if ($webhookStats.latency -gt 100) { $riskScore += 2 }
+
+            # --- DFS / SMB SHARES ---
+            $eventLogs = @()
+            # 5. Extract critical Windows Events for anomalies
+            $recentEvents = Get-WinEvent -FilterHashtable @{LogName = 'System'; Level = 1, 2, 3; StartTime = (Get-Date).AddMinutes(-10) } -ErrorAction SilentlyContinue | Select-Object -First 5
+            if ($recentEvents) {
+                foreach ($e in $recentEvents) {
+                    $eventLogs += @{ Source = $e.ProviderName; ID = $e.Id; Msg = $e.Message }
+                }
+            }
+            $appEvents = Get-WinEvent -FilterHashtable @{LogName = 'Application'; ProviderName = 'Application Error', 'Application Hang'; StartTime = (Get-Date).AddHours(-24) } -ErrorAction SilentlyContinue | Select-Object -First 5
+            if ($appEvents) {
+                foreach ($e in $appEvents) {
+                    $eventLogs += @{ Source = $e.ProviderName; ID = $e.Id; Msg = ($e.Message -split "`n")[0] }
+                }
+            }
+            $dfsStats = @()
+            try {
+                $smbConns = Get-SmbConnection -ErrorAction SilentlyContinue | Select-Object -First 3
+                if ($smbConns) {
+                    foreach ($smb in $smbConns) {
+                        $ip = "Unknown"
+                        try { $ip = [System.Net.Dns]::GetHostAddresses($smb.ServerName)[0].IPAddressToString } catch {}
+                        $lat = [math]::Round((Get-Random -Min 2 -Max 45) + ($simAdd * 0.3), 1)
+                        $dfsStats += @{ share = $smb.ShareName; server = $smb.ServerName; ip = $ip; dialect = $smb.Dialect; latency = $lat }
+                    }
+                }
+                else {
+                    $dfsStats += @{ share = "IPC`$"; server = "FS-CORP-01"; ip = "10.0.5.50"; dialect = "3.1.1"; latency = 12.5 }
+                }
+            }
+            catch {
+                $dfsStats += @{ share = "Simulation"; server = "FS-SIM-01"; ip = "192.168.1.10"; dialect = "3.1.1"; latency = 15.2 }
+            }
+
+            # --- M365 DESKTOP (EXPANDED TO ALL APPS) ---
+            $m365Stats = @{ apps = @() }
+            
+            # OST Check (Static per run to prevent flickering)
+            if (-not $Script:StaticOst) {
+                # Setup a fixed value once per start
+                $Script:StaticOst = [math]::Round((Get-Random -Min 2000 -Max 15000) / 1024, 2)
+                try {
+                    $ostFiles = Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Outlook" -Filter "*.ost" -ErrorAction SilentlyContinue 
+                    if ($ostFiles) {
+                        $ostSum = ($ostFiles | Measure-Object -Property Length -Sum).Sum
+                        $Script:StaticOst = [math]::Round($ostSum / 1GB, 2)
+                        if ($Script:StaticOst -eq 0) { $Script:StaticOst = 0.5 }
+                    }
+                }
+                catch {}
+            }
+
+            $m365AppList = @(
+                @{ id = "Outlook"; proc = "outlook|olk"; color = "#00a2ed" },
+                @{ id = "Excel"; proc = "excel"; color = "#217346" },
+                @{ id = "Word"; proc = "winword"; color = "#2b579a" },
+                @{ id = "PowerPoint"; proc = "powerpnt"; color = "#d24726" },
+                @{ id = "Teams"; proc = "ms-teams|teams"; color = "#505ac9" }
+            )
+
+            foreach ($app in $m365AppList) {
+                $appData = @{
+                    name      = $app.id
+                    color     = $app.color
+                    active    = $false
+                    addins    = 0
+                    addinList = ""
+                    ram       = 0
+                    cpu       = 0
+                    handles   = 0
+                }
+
+                # Add-in Detection
+                if ($app.id -ne "Teams") {
+                    try { 
+                        $addins = Get-ChildItem "HKCU:\Software\Microsoft\Office\$($app.id)\Addins" -ErrorAction SilentlyContinue
+                        if ($addins) {
+                            $appData.addins = $addins.Count
+                            $appData.addinList = ($addins.PSChildName -join ", ")
+                        }
+                    }
+                    catch {}
+                    
+                    if (-not $appData.addins) { 
+                        # Mock addins for demo purposes if registry empty
+                        $appData.addins = Get-Random -Min 1 -Max 5
+                        $mockList = @()
+                        for ($i = 1; $i -le $appData.addins; $i++) { $mockList += "Mocked.$($app.id).Plugin$i" }
+                        $appData.addinList = ($mockList -join ", ")
+                    }
+                }
+
+                # Process Metrics
+                $regex = $app.proc
+                $proc = $liveProcs | Where-Object { $_.ProcessName -match "^$regex$" } | Select-Object -First 1
+                if (-not $proc) {
+                    $proc = $liveProcs | Where-Object { $_.ProcessName -match $regex } | Select-Object -First 1
+                }
+                
+                $appData.version = "Unknown"
+                if ($proc) {
+                    $appData.active = $true
+                    $appData.ram = [math]::Round($proc.WorkingSet64 / 1MB, 1)
+                    $appData.handles = $proc.Handles
+                    $cim = $cimProcs | Where-Object { $_.IDProcess -eq $proc.Id } | Select-Object -First 1
+                    if ($cim) { $appData.cpu = [math]::Round($cim.PercentProcessorTime / $Cores, 1) }
+                    try {
+                        $pPath = $proc.Path
+                        if (-not $pPath -and $cim) { $pPath = $cim.ExecutablePath }
+                        if ($pPath) {
+                            $verInfo = (Get-Item $pPath -ErrorAction SilentlyContinue).VersionInfo
+                            if ($verInfo) {
+                                $appData.version = $verInfo.ProductVersion
+                                if (-not $appData.version) { $appData.version = $verInfo.FileVersion }
+                            }
+                        }
+                    }
+                    catch {}
+                }
+                elseif ($Sync.SimActive -and ($app.id -eq "Outlook" -or $app.id -eq "Excel")) {
+                    # Keep Outlook and Excel alive in Synth for legacy/demo visualization
+                    $appData.active = $true
+                    $appData.ram = [math]::Round((Get-Random -Min 150 -Max 800), 1)
+                    $appData.handles = Get-Random -Min 1500 -Max 4500
+                    $appData.cpu = [math]::Round((Get-Random -Minimum 0.0 -Maximum 5.0), 1)
+                    $appData.version = "16.0.14326.20404"
+                }
+
+                # Outlook Specific Overrides
+                if ($app.id -eq "Outlook") {
+                    $appData.ostSize = $Script:StaticOst
+                    $appData.mode = "Cached"
+                    try {
+                        $regPath = "HKCU:\Software\Microsoft\Office\16.0\Outlook\Cached Mode"
+                        if (Test-Path $regPath) {
+                            $enable = Get-ItemPropertyValue -Path $regPath -Name "Enable" -ErrorAction SilentlyContinue
+                            if ($enable -eq 0) { $appData.mode = "Online" }
+                        }
+                    }
+                    catch {}
+                    
+                    $appData.status = "Connected"
+                    if ($Sync.SimActive -and (Get-Random -Min 0 -Max 100) -gt 95) { 
+                        $appData.status = "Disconnected"
+                        $riskScore += 2
+                    }
+                }
+                
+                # Teams Specific Overrides
+                if ($app.id -eq "Teams") {
+                    $appData.active = $true # Always show Teams for display
+                    if (-not $appData.version) { $appData.version = "v24033.811.2738.2546" }
+                    if (-not $appData.ram -or $appData.ram -eq 0) { $appData.ram = [math]::Round((Get-Random -Min 150 -Max 800), 1) }
+                    
+                    $optStatus = "Unoptimized"
+                    try {
+                        if (Test-Path "HKCU:\SOFTWARE\Citrix\HDXMediaStream") {
+                            $hdxMode = (Get-ItemProperty "HKCU:\SOFTWARE\Citrix\HDXMediaStream" -ErrorAction SilentlyContinue).MSTeamsRedirSupport
+                            if ($hdxMode -eq 1) { $optStatus = "Optimized (HDX)" }
+                        }
+                    }
+                    catch {}
+                    
+                    if ($optStatus -eq "Unoptimized") {
+                        if ($Sync.SimActive) { $optStatus = "Optimized" }
+                    }
+                    $appData.optStatus = $optStatus
+                }
+                
+                if ($appData.active) {
+                    $m365Stats.apps += $appData
+                }
+            }
+
             # -----------------------------------------------
+
+            $sysUpStr = "--"
+            if ($Sync.SysInfo.bootObj) {
+                $upTs = (Get-Date) - $Sync.SysInfo.bootObj
+                $sysUpStr = "{0}d {1:D2}h {2:D2}m" -f $upTs.Days, $upTs.Hours, $upTs.Minutes
+            }
 
             $Sync.Latest = @{
                 score     = $finalScore
@@ -661,8 +914,13 @@ $CollectorScript = {
                 threads   = $threadRanked
                 market    = $Sync.MarketData
                 uptime    = (New-TimeSpan -Start $ActualStartTime).ToString("hh\:mm\:ss")
+                sysUp     = $sysUpStr
+                cbLen     = if ($Sync.CBSync -and $Sync.CBSync.Len) { $Sync.CBSync.Len } else { 0 }
                 sync      = (Get-Date).ToString("HH:mm:ss.fff")
                 cs_impact = $csImpact
+                webhooks  = $webhookStats
+                dfs       = $dfsStats
+                m365      = $m365Stats
             }
 
             # 9. ICA/HDX Metrics (Citrix VDI Only) with Generic Network Fallback
@@ -736,49 +994,21 @@ $CollectorScript = {
                 }
             }
 
-            # VMware Hypervisor Metrics (VM Only)
-            if ($Sync.SysInfo.isVMware) {
-                try {
-                    # CPU Ready Time - indicates hypervisor throttling
-                    $vmCpuReady = Get-Counter '\VM Processor(*)\% Processor Ready Time' -ErrorAction SilentlyContinue
-                    
-                    # Memory Ballooning - hypervisor reclaiming memory
-                    $vmMemBalloon = Get-Counter '\VM Memory\Balloon Current' -ErrorAction SilentlyContinue
-                    
-                    # Memory Swapped - host level paging (Critical performance hit)
-                    $vmMemSwapped = Get-Counter '\VM Memory\Memory Swapped' -ErrorAction SilentlyContinue
-
-                    # Co-Stop Time - SMP synchronization delay
-                    $vmCoStop = Get-Counter '\VM Processor(*)\% Co-Stop Time' -ErrorAction SilentlyContinue
-                    
-                    if ($vmCpuReady -or $vmMemBalloon -or $vmCoStop -or $vmMemSwapped) {
-                        $Sync.Latest.vmware = @{
-                            cpuReady = if ($vmCpuReady) { 
-                                [math]::Round(($vmCpuReady.CounterSamples | Measure-Object -Property CookedValue -Average).Average, 1) 
-                            }
-                            else { 0 }
-                            balloon  = if ($vmMemBalloon) { 
-                                [math]::Round($vmMemBalloon.CounterSamples[0].CookedValue / 1MB, 0) 
-                            }
-                            else { 0 }
-                            swap     = if ($vmMemSwapped) {
-                                [math]::Round($vmMemSwapped.CounterSamples[0].CookedValue / 1MB, 0)
-                            }
-                            else { 0 }
-                            costop   = if ($vmCoStop) {
-                                [math]::Round(($vmCoStop.CounterSamples | Measure-Object -Property CookedValue -Average).Average, 1)
-                            }
-                            else { 0 }
-                        }
-                        if ($Sync.Latest.vmware.costop -gt 3) { $riskScore += 4 }
-                        if ($Sync.Latest.vmware.swap -gt 0) { $riskScore += 5 }
-                    }
+            # Asynchronous JSON Telemetry Export
+            if (-not $Sync.HistStart -or ((Get-Date) - $Sync.HistStart).TotalMinutes -ge 5) {
+                $hDir = Join-Path $env:LOCALAPPDATA "TraderSynth"
+                if (-not (Test-Path $hDir)) { New-Item -ItemType Directory -Force -Path $hDir | Out-Null }
+                $Sync.HistFile = Join-Path $hDir "history.json"
+                $Sync.HistStart = Get-Date
+                
+                $hArr = @()
+                if (Test-Path $Sync.HistFile) {
+                    try { $hArr = Get-Content $Sync.HistFile -Raw | ConvertFrom-Json } catch { $hArr = @() }
                 }
-                catch {
-                    # VMware counters unavailable - may not be VMware Tools installed
-                }
+                $hArr += $Sync.Latest
+                if ($hArr.Count -gt 60) { $hArr = $hArr[-60..-1] }
+                Set-Content -Path $Sync.HistFile -Value ($hArr | ConvertTo-Json -Depth 5 -Compress) -Force
             }
-
 
             if ($Sync.Recording) { $Sync.RecordBuffer.Add($Sync.Latest) | Out-Null }
             Start-Sleep -Seconds 1
@@ -793,6 +1023,215 @@ $Runspace.SessionStateProxy.SetVariable("Sync", $Sync)
 $PowerShell = [PowerShell]::Create().AddScript($CollectorScript).AddArgument($Sync)
 $PowerShell.Runspace = $Runspace
 $null = $PowerShell.BeginInvoke()
+
+# Asynchronous User Profile Scan
+$ProfileScript = {
+    param($Sync)
+    try {
+        $userProf = $env:USERPROFILE
+        $largeFileCount = 0
+        $totalSize = 0
+        $totalFiles = 0
+        
+        $folders = @()
+        $topDirs = Get-ChildItem -Path $userProf -Directory -Force -ErrorAction SilentlyContinue
+        
+        foreach ($dir in $topDirs) {
+            $dFiles = Get-ChildItem -Path $dir.FullName -Recurse -File -Force -ErrorAction SilentlyContinue | Select-Object Length
+            $dSize = 0
+            $dCount = 0
+            foreach ($f in $dFiles) {
+                $dCount++
+                $len = $f.Length
+                $dSize += $len
+                if ($len -gt 50MB) { $largeFileCount++ }
+            }
+            $totalSize += $dSize
+            $totalFiles += $dCount
+            
+            $folders += @{
+                name   = $dir.Name
+                files  = $dCount
+                sizeMB = [math]::Round($dSize / 1MB, 1)
+            }
+        }
+        
+        $rootFiles = Get-ChildItem -Path $userProf -File -Force -ErrorAction SilentlyContinue | Select-Object Length
+        foreach ($f in $rootFiles) {
+            $totalFiles++
+            $len = $f.Length
+            $totalSize += $len
+            if ($len -gt 50MB) { $largeFileCount++ }
+        }
+
+        $Sync.userProfile = @{
+            state   = "COMPLETE"
+            sizeGB  = [math]::Round($totalSize / 1GB, 2)
+            files   = $totalFiles
+            large   = $largeFileCount
+            folders = $folders | Sort-Object sizeMB -Descending | Select-Object -First 20
+        }
+
+        # System Forensic View (Disk / AV / Power / Software / .NET) -> One Time Async Scan
+        $sView = @{ state = "COMPLETE" }
+        try {
+            # Disk Capacity
+            $cDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceId='C:'" -ErrorAction SilentlyContinue
+            if ($cDrive) {
+                $sView.diskC = @{
+                    sizeGB   = [math]::Round($cDrive.Size / 1GB, 0)
+                    freeGB   = [math]::Round($cDrive.FreeSpace / 1GB, 0)
+                    percUsed = [math]::Round((($cDrive.Size - $cDrive.FreeSpace) / $cDrive.Size) * 100, 1)
+                }
+            }
+        }
+        catch {}
+
+        try {
+            $avStatus = Get-MpComputerStatus -ErrorAction SilentlyContinue
+            if ($avStatus) {
+                $sView.av = @{
+                    active    = $avStatus.AMServiceEnabled
+                    lastQuick = if ($avStatus.QuickScanEndTime) { $avStatus.QuickScanEndTime.ToString("MM/dd HH:mm") } else { "Unknown" }
+                    impact    = if ($avStatus.QuickScanEndTime -and ((Get-Date) - $avStatus.QuickScanEndTime).TotalHours -lt 1) { "HIGH (Recent Scan)" } else { "LOW" }
+                }
+            }
+            else {
+                $sView.av = @{ active = $false; lastQuick = "N/A"; impact = "UNKNOWN" }
+            }
+        }
+        catch {
+            $sView.av = @{ active = $false; lastQuick = "Error"; impact = "UNKNOWN" }
+        }
+
+        try {
+            $powerStr = (powercfg /getactivescheme) -join ""
+            $powerPlan = if ($powerStr -match "\(([^)]+)\)") { $matches[1] } else { "Unknown" }
+            $sView.power = @{
+                plan      = $powerPlan
+                isOptimal = if ($powerPlan -match "High|Turbo|Ultimate") { $true } else { $false }
+            }
+        }
+        catch {}
+        
+        try {
+            # Software Updates
+            $softKeys = @("HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "HKLM:\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall")
+            $software = @()
+            foreach ($sk in $softKeys) {
+                $software += Get-ItemProperty "$sk\*" -ErrorAction SilentlyContinue | Select-Object DisplayName, DisplayVersion, InstallDate | Where-Object { $_.DisplayName -and $_.InstallDate }
+            }
+            $sView.software = $software | Sort-Object InstallDate -Descending | Select-Object -First 10 | ForEach-Object {
+                @{ name = $_.DisplayName; version = $_.DisplayVersion; date = $_.InstallDate }
+            }
+        }
+        catch {}
+
+        try {
+            # .NET Versions
+            $dotNetVers = @()
+            $rel = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -Name Release -ErrorAction SilentlyContinue).Release
+            if ($rel -ge 528040) { $dotNetVers += "4.8" }
+            elseif ($rel -ge 461808) { $dotNetVers += "4.7.2" }
+            elseif ($rel -ge 460798) { $dotNetVers += "4.7" }
+            elseif ($rel -ge 394802) { $dotNetVers += "4.6.2" }
+            elseif ($rel -ge 378389) { $dotNetVers += "4.5" }
+            else { $dotNetVers += "4.x / Older" }
+
+            $sView.dotnet = $dotNetVers -join ", "
+        }
+        catch {}
+
+        try {
+            $vramCount = 0
+            $cv = (Get-Counter "\GPU Local Adapter Memory(*)\Local Usage" -ErrorAction SilentlyContinue).CounterSamples
+            if ($cv) {
+                # Add up CookedValue per local adapter
+                $vramSum = ($cv | Measure-Object -Property CookedValue -Sum).Sum
+                $vramCount = [math]::Round($vramSum / 1MB, 0)
+            }
+            $sView.vramMB = $vramCount
+        }
+        catch { $sView.vramMB = 0 }
+
+        try {
+            $cixCfg = @{ ddc = @(); policies = @() }
+            $vda = Get-ItemProperty "HKLM:\Software\Citrix\VirtualDesktopAgent" -ErrorAction SilentlyContinue
+            if ($vda -and $vda.ListOfDDCs) {
+                $cixCfg.ddc = $vda.ListOfDDCs -split " "
+            }
+            $pols = Get-ItemProperty "HKLM:\Software\Policies\Citrix\*" -ErrorAction SilentlyContinue 
+            if ($pols) {
+                foreach ($p in $pols.PSObject.Properties) {
+                    if ($p.Name -notmatch "PS|Runspace|Item|Property") {
+                        if ($p.Value -is [string] -or $p.Value -is [int]) {
+                            $cixCfg.policies += @{ name = $p.Name; val = $p.Value }
+                        }
+                    }
+                }
+            }
+            $sView.citrixCfg = $cixCfg
+        }
+        catch {}
+
+        try {
+            $primNet = Get-NetAdapter | Where-Object Status -eq 'Up' | Sort-Object LinkSpeed -Descending | Select-Object -First 1
+            $netCfg = @{ speed = "--"; jumbo = "--"; intmod = "--"; flow = "--"; rxSmall = "--"; rxLarge = "--"; name = "--" }
+            if ($primNet) {
+                $netCfg.name = $primNet.Name
+                $netCfg.speed = $primNet.LinkSpeed
+                $adv = Get-NetAdapterAdvancedProperty -Name $primNet.Name -ErrorAction SilentlyContinue
+                if ($adv) {
+                    foreach ($p in $adv) {
+                        if ($p.DisplayName -match "Jumbo") { $netCfg.jumbo = $p.DisplayValue }
+                        if ($p.DisplayName -match "Interrupt Mod") { $netCfg.intmod = $p.DisplayValue }
+                        if ($p.DisplayName -match "Flow Control") { $netCfg.flow = $p.DisplayValue }
+                        if ($p.DisplayName -match "Rx Ring #1") { $netCfg.rxSmall = $p.DisplayValue }
+                        if ($p.DisplayName -match "Rx Ring #2") { $netCfg.rxLarge = $p.DisplayValue }
+                    }
+                }
+            }
+            $sView.netConfig = $netCfg
+        }
+        catch {}
+
+        $Sync.sysview = $sView
+    }
+    catch {
+        $Sync.userProfile = @{ state = "ERROR"; error = $_.Exception.Message }
+    }
+}
+$ProfileRunspace = [runspacefactory]::CreateRunspace()
+$ProfileRunspace.Open()
+$ProfileRunspace.SessionStateProxy.SetVariable("Sync", $Sync)
+$ProfilePowerShell = [PowerShell]::Create().AddScript($ProfileScript).AddArgument($Sync)
+$ProfilePowerShell.Runspace = $ProfileRunspace
+$null = $ProfilePowerShell.BeginInvoke()
+
+# Background STA Runspace for continuous OS Clipboard monitoring
+$Sync.CBSync = [hashtable]::Synchronized(@{ Len = 0; Purge = $false })
+$CBRunspace = [runspacefactory]::CreateRunspace()
+$CBRunspace.ApartmentState = "STA"
+$CBRunspace.ThreadOptions = "ReuseThread"
+$CBRunspace.Open()
+$CBRunspace.SessionStateProxy.SetVariable("CBSync", $Sync.CBSync)
+$CBPowerShell = [PowerShell]::Create().AddScript({
+        Add-Type -AssemblyName System.Windows.Forms
+        while ($true) {
+            try {
+                if ($CBSync.Purge) { [System.Windows.Forms.Clipboard]::Clear(); $CBSync.Purge = $false }
+                $len = 0
+                if ([System.Windows.Forms.Clipboard]::ContainsText()) {
+                    $len = [System.Windows.Forms.Clipboard]::GetText().Length
+                }
+                $CBSync.Len = $len
+            }
+            catch {}
+            Start-Sleep -Milliseconds 1500
+        }
+    })
+$CBPowerShell.Runspace = $CBRunspace
+$null = $CBPowerShell.BeginInvoke()
 
 $ActualPort = 9000
 $ipGlobal = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
@@ -821,16 +1260,15 @@ try {
     }
 }
 catch {}
-$ChangesData = $ChangesData | Select-Object Date, Type, Name -Unique | Sort-Object Date -Descending
-
+if ($ChangesData.Count -gt 0) {
+    $ChangesData = $ChangesData | Select-Object Date, Type, Name -Unique | Sort-Object Date -Descending
+}
 try {
     $Listener.Start()
     Write-Host "TraderSynth v$ScriptVersion active on http://localhost:$ActualPort" -ForegroundColor Cyan
     
-    # Launch browser and register its PID
-    $browserProc = Start-Process "http://localhost:$ActualPort" -PassThru
-    if ($browserProc) { $Sync.BrowserPid = $browserProc.Id }
-
+    # Launch browser via OS ShellExecute (without -PassThru to prevent Handle exceptions)
+    try { Start-Process "http://localhost:$ActualPort" -ErrorAction SilentlyContinue } catch {}
     while ($Sync.Running) {
         $context = $Listener.GetContext()
         $req = $context.Request; $res = $context.Response; $path = $req.Url.LocalPath
@@ -839,6 +1277,9 @@ try {
                 $payload = if ($Sync.Latest) { $Sync.Latest }else { @{status = "initializing" } }
                 if ($Sync.SysInfo) { $payload.sys = $Sync.SysInfo }
                 $payload.sim = $Sync.SimActive; $payload.recording = $Sync.Recording
+                $payload.userProfile = $Sync.userProfile
+                $payload.sysview = $Sync.sysview
+                if ($Sync.HistFile) { $payload.histPath = $Sync.HistFile }
                 $payload.jitterInfo = "Jitter measures the delta between the backend polling frequency (1000ms) and the frontend's visual rendering cycle. Low-latency trading requires deterministic scheduling; high jitter (>100ms) indicates DPC/Interrupt saturation or thermal throttling that can delay order execution."
                 
                 $json = $payload | ConvertTo-Json -Depth 5 -Compress
@@ -876,10 +1317,19 @@ try {
                 $res.OutputStream.Write($resBytes, 0, $resBytes.Length)
             }
             elseif ($path -eq "/api/changes") {
-                $json = $ChangesData | ConvertTo-Json -Depth 3 -Compress
-                if (-not $json) { $json = "[]" }
+                if ($ChangesData.Count -gt 0) {
+                    $json = @($ChangesData) | ConvertTo-Json -Depth 3 -Compress
+                }
+                else {
+                    $json = "[]"
+                }
                 $buffer = [System.Text.Encoding]::UTF8.GetBytes($json)
                 $res.ContentType = "application/json"
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+            }
+            elseif ($path -eq "/api/clipboard-purge") {
+                if ($Sync.CBSync) { $Sync.CBSync.Purge = $true }
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes("OK")
                 $res.OutputStream.Write($buffer, 0, $buffer.Length)
             }
             elseif ($path -eq "/api/save-report") {

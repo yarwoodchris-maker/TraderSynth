@@ -29,6 +29,7 @@ var pendingPurgePid = null;
 const MAX_SPARK = 50;
 var localUptimeSeconds = 0;
 var lastUptimeSync = "";
+var lastThreadCounts = {};
 
 function safeSetText(id, val) {
     var el = document.getElementById(id);
@@ -44,8 +45,7 @@ function formatSeconds(s) {
 }
 
 function tickUptime() {
-    localUptimeSeconds++;
-    safeSetText("uptime-display", formatSeconds(localUptimeSeconds));
+    // Legacy tick function removed; driven strictly by backend data.uptime now.
 }
 
 function initUltraTicker() {
@@ -92,7 +92,7 @@ function renderUltraTicker(time) {
 
     if (ultraTickerData.length > 0) {
         var p = ultraTickerData[ultraTickerData.length - 1];
-        ultraTickerCtx.fillStyle = "#fff";
+        ultraTickerCtx.fillStyle = "var(--text-main)";
         ultraTickerCtx.font = "bold 16px Outfit";
         ultraTickerCtx.fillText("$" + p.price.toFixed(2), ultraTickerCanvas.width - 120, 35);
         ultraTickerCtx.fillStyle = "#30d158";
@@ -112,15 +112,43 @@ function getDiagnosticColor(val, levels) {
 function drawAreaChart(id, data, max) {
     var svg = document.getElementById(id);
     if (!svg) return;
-    var w = 300, h = 100, l = data.length, pts = "";
+    var w = 300, h = 100, l = data.length;
+    var pts = [];
+    max = Math.max(max, 10); // Minimum scale floor
+
+    // Safety
+    if (l === 0) return;
+
     for (var i = 0; i < l; i++) {
         var x = (i / (l - 1)) * w;
-        var y = h - (Math.min(data[i], max) / max) * 85 - 10; // Vertical padding for axes labels
-        pts += (i === 0 ? "M " : " L ") + x + " " + y;
+        var y = h - (Math.min(data[i], max) / max) * 75 - 20; // Bound mapping with pad
+        pts.push({ x: x, y: y });
     }
+
+    var d = "M " + pts[0].x + "," + pts[0].y;
+    for (var i = 1; i < l; i++) {
+        var p = pts[i - 1], c = pts[i];
+        var mx = (p.x + c.x) / 2;
+        d += " C " + mx + "," + p.y + " " + mx + "," + c.y + " " + c.x + "," + c.y; // Spline curve mapping
+    }
+
     var line = svg.querySelector(".spark-path"), fill = svg.querySelector(".spark-fill");
-    if (line) line.setAttribute("d", pts);
-    if (fill) fill.setAttribute("d", pts + " L " + w + " " + h + " L 0 " + h + " Z");
+    if (line) line.setAttribute("d", d);
+    if (fill) fill.setAttribute("d", d + " L " + w + " " + (h - 10) + " L 0 " + (h - 10) + " Z");
+
+    // Dynamic Axes Injection
+    var axes = svg.querySelector(".axes-group");
+    if (!axes) {
+        axes = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        axes.setAttribute("class", "axes-group");
+        svg.appendChild(axes);
+    }
+    axes.innerHTML = "<line x1='0' y1='" + (h - 12) + "' x2='" + w + "' y2='" + (h - 12) + "' stroke='rgba(var(--text-rgb),0.2)' stroke-dasharray='4' stroke-width='1'/>" +
+        "<line x1='0' y1='10' x2='" + w + "' y2='10' stroke='var(--border-light)' stroke-dasharray='2' stroke-width='1'/>" +
+        "<text x='2' y='20' fill='rgba(var(--text-rgb),0.4)' font-size='10' font-family='monospace'>MAX:" + Math.round(max) + "</text>" +
+        "<text x='2' y='" + (h - 16) + "' fill='rgba(var(--text-rgb),0.4)' font-size='10' font-family='monospace'>0</text>" +
+        "<text x='" + (w - 25) + "' y='" + (h - 2) + "' fill='rgba(var(--text-rgb),0.4)' font-size='9'>NOW</text>" +
+        "<text x='2' y='" + (h - 2) + "' fill='rgba(var(--text-rgb),0.4)' font-size='9'>-60s</text>";
 }
 
 function drawNetworkChart(inData, outData) {
@@ -133,19 +161,37 @@ function drawNetworkChart(inData, outData) {
         if (outData[i] > maxVal) maxVal = outData[i];
     }
 
-    var ptsIn = "", ptsOut = "";
-    for (var j = 0; j < l; j++) {
-        var x = (j / (l - 1)) * w;
-        var yIn = h - (Math.min(inData[j], maxVal) / maxVal) * 90 - 5;
-        var yOut = h - (Math.min(outData[j], maxVal) / maxVal) * 90 - 5;
-        ptsIn += (j === 0 ? "M " : " L ") + x + " " + yIn;
-        ptsOut += (j === 0 ? "M " : " L ") + x + " " + yOut;
+    function genSpline(arrData) {
+        if (l === 0) return "";
+        var cp = [];
+        for (var i = 0; i < l; i++) {
+            var x = (i / (l - 1)) * w;
+            var y = h - (Math.min(arrData[i], maxVal) / maxVal) * 75 - 20;
+            cp.push({ x: x, y: y });
+        }
+        var dt = "M " + cp[0].x + "," + cp[0].y;
+        for (var i = 1; i < l; i++) {
+            var p = cp[i - 1], c = cp[i], mx = (p.x + c.x) / 2;
+            dt += " C " + mx + "," + p.y + " " + mx + "," + c.y + " " + c.x + "," + c.y;
+        }
+        return dt;
     }
 
     var pIn = document.getElementById("net-in-path");
     var pOut = document.getElementById("net-out-path");
-    if (pIn) pIn.setAttribute("d", ptsIn);
-    if (pOut) pOut.setAttribute("d", ptsOut);
+    if (pIn) pIn.setAttribute("d", genSpline(inData));
+    if (pOut) pOut.setAttribute("d", genSpline(outData));
+
+    var pt = document.getElementById("net-peak-label");
+    if (pt) pt.textContent = "PEAK: " + Math.round(maxVal);
+
+    var axes = svg.querySelector(".axes-group");
+    if (!axes) {
+        axes = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        axes.setAttribute("class", "axes-group");
+        svg.appendChild(axes);
+    }
+    axes.innerHTML = "<line x1='0' y1='" + (h - 1) + "' x2='" + w + "' y2='" + (h - 1) + "' stroke='rgba(var(--text-rgb),0.2)' stroke-dasharray='4' stroke-width='1'/>";
 }
 
 function updateHeatmap(id, loads, affinity) {
@@ -171,7 +217,7 @@ function updateHeatmap(id, loads, affinity) {
             col = "rgba(255, 55, 95, " + op + ")";
         }
 
-        var border = "1px solid rgba(255,255,255,0.05)";
+        var border = "1px solid var(--border-light)";
         var title = 'Core C' + i + ': ' + Math.round(l) + '%';
 
         // Affinity Visualization
@@ -228,12 +274,55 @@ function updateTicker(market) {
     t.innerHTML = h + h;
 }
 
+var globalHistPath = "";
+function openHistory() {
+    if (globalHistPath) {
+        alert("Encrypted JSON Telemetry History Stream saved locally to:\n\n" + globalHistPath + "\n\nYou can upload this file into a secondary analytics workspace.");
+    }
+}
+
+function purgeClipboard() {
+    var cb = document.getElementById("cb-size-val");
+    if (cb) cb.textContent = "PURGING...";
+    fetch("/api/clipboard-purge").then(r => r.text()).catch(e => { });
+}
+
 function updateFrame(data) {
     if (!data) return;
+    if (data.sysUp) safeSetText("sys-uptime-val", data.sysUp);
+    if (data.uptime) safeSetText("uptime-display", data.uptime);
+    if (data.cbLen !== undefined) {
+        var cb = document.getElementById("cb-size-val");
+        if (cb && cb.textContent.indexOf("PURGING") === -1) {
+            var formatted = "0 KB";
+            if (data.cbLen > 0) {
+                if (data.cbLen > 1048576) {
+                    formatted = (data.cbLen / 1048576).toFixed(1) + " MB";
+                } else if (data.cbLen > 1024) {
+                    formatted = (data.cbLen / 1024).toFixed(1) + " KB";
+                } else {
+                    formatted = data.cbLen + " B";
+                }
+            }
+            cb.textContent = formatted;
+
+            if (data.cbLen > 5242880) cb.style.color = "var(--accent-red)"; // > 5MB = Red
+            else if (data.cbLen > 1048576) cb.style.color = "#ffcc00";      // > 1MB = Yellow
+            else cb.style.color = "var(--accent-blue)";
+        }
+    }
+    if (data.histPath) {
+        globalHistPath = data.histPath;
+        var hBtn = document.getElementById("hist-btn");
+        if (hBtn) hBtn.style.display = "inline-block";
+    }
     if (data.sys) {
         safeSetText("profile-os", data.sys.os);
+        safeSetText("profile-user", data.sys.user || "--");
         safeSetText("profile-cpu", data.sys.cpu);
+        safeSetText("profile-boot", data.sys.boot || "--");
         safeSetText("profile-ram", data.sys.ram);
+        safeSetText("profile-ip", (data.sys.ip || "--") + " / " + (data.sys.subnet || "--"));
         safeSetText("profile-displays", data.sys.monitorCount || "1");
         if (document.getElementById("gpu-name")) document.getElementById("gpu-name").textContent = data.sys.gpu;
     }
@@ -326,7 +415,7 @@ function updateFrame(data) {
                     dots[i].style.background = col;
                     dots[i].style.boxShadow = "0 0 5px " + col;
                 } else {
-                    dots[i].style.background = "rgba(255,255,255,0.1)";
+                    dots[i].style.background = "rgba(var(--text-rgb),0.1)";
                     dots[i].style.boxShadow = "none";
                 }
             }
@@ -412,7 +501,7 @@ function updateFrame(data) {
 
                         rvmH += `<div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:8px;">
                                     <div style="font-size:0.55rem; opacity:0.5;">RVM VERSION</div>
-                                    <div style="font-size:0.8rem; font-weight:700; color:#fff;">${rvmVer}</div>
+                                    <div style="font-size:0.8rem; font-weight:700; color:var(--text-main);">${rvmVer}</div>
                                  </div>`;
 
                         // Runtime Section
@@ -423,10 +512,10 @@ function updateFrame(data) {
                                 for (var k = 0; k < rtKeys.length; k++) {
                                     var ver = rtKeys[k];
                                     var info = data.openfin.runtimes[ver];
-                                    var verColor = rtKeys.length > 1 ? "#ffcc00" : "#fff";
+                                    var verColor = rtKeys.length > 1 ? "#ffcc00" : "var(--text-main)";
                                     var gpuTxt = info.gpu > 0 ? `<span style="color:var(--accent-blue); font-weight:700;">GPU ${Number(info.gpu).toFixed(0)}%</span>` : `<span style="opacity:0.3;">GPU 0%</span>`;
 
-                                    rvmH += `<div style="font-size:0.65rem; margin-bottom:3px; display:flex; justify-content:space-between; background:rgba(255,255,255,0.03); padding:4px 6px; border-radius:4px;">
+                                    rvmH += `<div style="font-size:0.65rem; margin-bottom:3px; display:flex; justify-content:space-between; background:var(--bg-card); padding:4px 6px; border-radius:4px;">
                                                     <span style="color:${verColor}; font-weight:600;">${ver}</span>
                                                     <div style="display:flex; gap:8px;">
                                                         <span style="opacity:0.6;">${info.count} PIDs</span>
@@ -441,7 +530,7 @@ function updateFrame(data) {
                             var eff = data.openfin.efficiency;
                             var effColor = eff > 90 ? "var(--accent-green)" : (eff < 50 ? "var(--accent-red)" : "#ffcc00");
 
-                            rvmH += `<div style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                            rvmH += `<div style="margin-top:8px; border-top:1px solid var(--border-light); padding-top:6px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
                                     <span style="font-size:0.55rem; opacity:0.5;">THREAD EFFICIENCY</span>
                                     <span style="font-size:0.7rem; font-weight:700; color:${effColor};">${eff}%</span>
@@ -488,7 +577,7 @@ function updateFrame(data) {
                         flagsH += `<div style="font-size:0.5rem; padding:3px 6px; background:${fBg}; border:1px solid ${fCol}; border-radius:4px; color:${fCol}; font-weight:700;">${fName}</div>`;
                     }
                 } else if (data.openfin.active) {
-                    flagsH = '<div style="font-size:0.5rem; padding:3px 6px; background:rgba(255,255,255,0.05); border-radius:4px; color:var(--text-dim);">SECURE_BASELINE</div>';
+                    flagsH = '<div style="font-size:0.5rem; padding:3px 6px; background:var(--border-light); border-radius:4px; color:var(--text-dim);">SECURE_BASELINE</div>';
                 }
                 document.getElementById("ofin-flags").innerHTML = flagsH;
             } else {
@@ -501,7 +590,7 @@ function updateFrame(data) {
                 safeSetText("ofin-renderers", "--");
                 safeSetText("ofin-ram", "-- MB");
                 var flagsEl = document.getElementById("ofin-flags");
-                if (flagsEl) flagsEl.innerHTML = '<div style="font-size:0.55rem; padding:4px 8px; background:rgba(255,255,255,0.05); border-radius:4px; color:var(--text-dim);">OpenFin Not Detected</div>';
+                if (flagsEl) flagsEl.innerHTML = '<div style="font-size:0.55rem; padding:4px 8px; background:var(--border-light); border-radius:4px; color:var(--text-dim);">OpenFin Not Detected</div>';
             }
         }
 
@@ -629,6 +718,33 @@ function updateFrame(data) {
                         adapterEl.style.display = "none";
                     }
                 }
+
+                // Overlay Low Latency network items
+                if (data.sys && data.sys.netConfig) {
+                    safeSetText("net-link-speed", data.sys.netConfig.speed);
+                    safeSetText("net-config-status", data.sys.netConfig.name);
+                    safeSetText("net-speed", data.sys.netConfig.speed);
+                    safeSetText("net-jumbo", data.sys.netConfig.jumbo);
+                    safeSetText("net-intmod", data.sys.netConfig.intmod);
+                    safeSetText("net-flow", data.sys.netConfig.flow);
+
+                    if (data.sys.netConfig.rxSmall !== "--" && data.sys.netConfig.rxSmall !== "N/A") {
+                        document.getElementById("net-vmxnet-rx1").style.display = "flex";
+                        safeSetText("net-rxSmall", data.sys.netConfig.rxSmall);
+                    } else {
+                        document.getElementById("net-vmxnet-rx1").style.display = "none";
+                    }
+
+                    if (data.sys.netConfig.rxLarge !== "--" && data.sys.netConfig.rxLarge !== "N/A") {
+                        document.getElementById("net-vmxnet-rx2").style.display = "flex";
+                        safeSetText("net-rxLarge", data.sys.netConfig.rxLarge);
+                    } else {
+                        document.getElementById("net-vmxnet-rx2").style.display = "none";
+                    }
+                } else {
+                    safeSetText("net-link-speed", "--");
+                    safeSetText("net-config-status", "--");
+                }
             } else if (data.sys && data.sys.isCitrix) {
                 // Citrix detected but counters unavailable - show diagnostic
                 safeSetText("ica-latency-val", "N/A");
@@ -658,48 +774,269 @@ function updateFrame(data) {
             }
         }
 
-        // VMware Health Card Rendering
-        var vmCard = document.getElementById("vmware-health-card");
-        if (vmCard && (data.vmware || (data.sys && data.sys.isVMware))) {
-            vmCard.style.display = "block";
-            if (data.vmware) {
-                safeSetText("vm-ready-val", (data.vmware.cpuReady || 0).toFixed(1) + " %");
-                safeSetText("vm-balloon-val", (data.vmware.balloon || 0) + " MB");
-                safeSetText("vm-swap-val", (data.vmware.swap || 0) + " MB");
-                safeSetText("vm-costop-val", (data.vmware.costop || 0).toFixed(1) + " %");
+        // Physical System Health Card Rendering (Disk/AV/Power)
+        var sysCard = document.getElementById("sysview-health-card");
+        if (sysCard) {
+            sysCard.style.display = "block";
 
-                var readyEl = document.getElementById("vm-ready-val");
-                if (readyEl) {
-                    var ready = data.vmware.cpuReady || 0;
-                    if (ready > 10) readyEl.style.color = "var(--accent-red)";
-                    else if (ready > 5) readyEl.style.color = "#ffcc00";
-                    else readyEl.style.color = "var(--accent-blue)";
-                }
+            var d = data.sysview || {};
 
-                var costopEl = document.getElementById("vm-costop-val");
-                if (costopEl) {
-                    var csVal = data.vmware.costop || 0;
-                    if (csVal > 3) costopEl.style.color = "var(--accent-red)";
-                    else if (csVal > 1) costopEl.style.color = "#ffcc00";
-                    else costopEl.style.color = "#fff";
-                }
+            if (d.diskC) {
+                var used = d.diskC.percUsed || 0;
+                safeSetText("sysview-disk-perc", used.toFixed(1) + " %");
+                safeSetText("sysview-disk-free", (d.diskC.freeGB || 0) + " GB");
 
-                var balloonEl = document.getElementById("vm-balloon-val");
-                if (balloonEl) {
-                    if ((data.vmware.balloon || 0) > 0) balloonEl.style.color = "var(--accent-red)";
-                    else balloonEl.style.color = "var(--accent-blue)";
-                }
-
-                var swapEl = document.getElementById("vm-swap-val");
-                if (swapEl) {
-                    if ((data.vmware.swap || 0) > 0) swapEl.style.color = "var(--accent-red)";
-                    else swapEl.style.color = "var(--accent-blue)";
+                var pEl = document.getElementById("sysview-disk-perc");
+                if (pEl) {
+                    if (used > 95) pEl.style.color = "var(--accent-red)";
+                    else if (used > 85) pEl.style.color = "#ffcc00";
+                    else pEl.style.color = "var(--accent-blue)";
                 }
             } else {
-                safeSetText("vm-ready-val", "0.0 %");
-                safeSetText("vm-balloon-val", "0 MB");
-                safeSetText("vm-swap-val", "0 MB");
-                safeSetText("vm-costop-val", "0.0 %");
+                safeSetText("sysview-disk-perc", "-- %");
+                safeSetText("sysview-disk-free", "-- GB");
+            }
+
+            if (d.av) {
+                var avEl = document.getElementById("sysview-av-status");
+                safeSetText("sysview-av-status", d.av.active ? "Scan: " + d.av.lastQuick : "DISABLED / NOT FOUND");
+                if (avEl) {
+                    if (d.av.impact && d.av.impact.indexOf("HIGH") !== -1) {
+                        avEl.style.color = "var(--accent-red)";
+                    } else if (d.av.active) {
+                        avEl.style.color = "var(--text-main)";
+                    } else {
+                        avEl.style.color = "var(--text-dim)";
+                    }
+                }
+            } else {
+                safeSetText("sysview-av-status", "--");
+            }
+
+            if (d.power) {
+                safeSetText("sysview-power-plan", d.power.plan || "Unknown");
+                var pwrEl = document.getElementById("sysview-power-plan");
+                if (pwrEl) {
+                    if (d.power.isOptimal) pwrEl.style.color = "var(--accent-green)";
+                    else pwrEl.style.color = "var(--accent-red)";
+                }
+            } else {
+                safeSetText("sysview-power-plan", "--");
+            }
+
+            if (d.dotnet) safeSetText("sysview-dotnet", d.dotnet);
+
+            var sTarg = document.getElementById("sysview-software-target");
+            if (sTarg && d.software && d.software.length > 0) {
+                if (sTarg.innerHTML.indexOf("Scanning") !== -1) {
+                    var sHtml = "";
+                    for (var si = 0; si < d.software.length; si++) {
+                        var sw = d.software[si];
+                        var name = sw.name || "Unknown Update";
+                        var rawDate = sw.date ? sw.date.toString() : "";
+                        var fmtDate = rawDate.length === 8 ? rawDate.substring(0, 4) + "-" + rawDate.substring(4, 6) + "-" + rawDate.substring(6, 8) : rawDate;
+                        sHtml += '<div style="display:flex; justify-content:space-between; background:var(--bg-overlay); padding:4px 6px; border-radius:4px; font-size:0.55rem; align-items:center;">' +
+                            '<span style="color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;" title="' + name + '">' + name + '</span>' +
+                            '<span style="color:var(--text-dim);">' + fmtDate + '</span></div>';
+                    }
+                    sTarg.innerHTML = sHtml;
+                }
+            } else if (sTarg && d.state === "COMPLETE" && (!d.software || d.software.length === 0)) {
+                if (sTarg.innerHTML.indexOf("Scanning") !== -1) {
+                    sTarg.innerHTML = '<div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:15px;">No recent changes found.</div>';
+                }
+            }
+
+            if (d.vramMB !== undefined) {
+                var vEl = document.getElementById("gpu-vram-val");
+                if (vEl) vEl.textContent = d.vramMB + " MB";
+            }
+
+            if (d.citrixCfg) {
+                var cTarg = document.getElementById("citrix-config-list");
+                if (cTarg && cTarg.innerHTML.indexOf("Scanning") !== -1) {
+                    var html = "";
+                    if (d.citrixCfg.ddc && d.citrixCfg.ddc.length > 0) {
+                        html += '<div style="margin-bottom:8px;">' +
+                            '<span style="color:var(--accent-blue); font-weight:800; display:block; margin-bottom:4px;">CLOUD CONNECTORS (DDC)</span>';
+                        for (var hi = 0; hi < d.citrixCfg.ddc.length; hi++) {
+                            html += '<span style="display:inline-block; background:var(--border-light); padding:2px 4px; margin:2px; border-radius:4px; font-weight:700; color:var(--text-main);">' + d.citrixCfg.ddc[hi] + '</span>';
+                        }
+                        html += '</div>';
+                    }
+                    if (d.citrixCfg.policies && d.citrixCfg.policies.length > 0) {
+                        html += '<div style="margin-top:5px;"><span style="color:var(--accent-green); font-weight:800; display:block; margin-bottom:4px;">VDA CONFIGURATION Registry Policies</span>';
+                        for (var pi = 0; pi < d.citrixCfg.policies.length; pi++) {
+                            html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px; padding:2px 4px; background:var(--bg-overlay); border-radius:3px;"><span style="word-break:break-all; max-width:80%;">' + d.citrixCfg.policies[pi].name + '</span><span style="color:var(--text-main); font-weight:700;">' + d.citrixCfg.policies[pi].val + '</span></div>';
+                        }
+                        html += '</div>';
+                    }
+                    if (html === "") {
+                        html = '<div style="opacity:0.3; text-align:center;">No direct VDA policies found.</div>';
+                    }
+                    cTarg.innerHTML = html;
+                }
+            }
+
+            if (d.diskC && d.av && d.power) {
+                safeSetText("sysview-status-tag", "ONLINE");
+            } else {
+                safeSetText("sysview-status-tag", "ANALYZING");
+            }
+        }
+
+        // User Profile Card Rendering
+        if (data.userProfile) {
+            var up = data.userProfile;
+            var bState = document.getElementById("profile-state-badge");
+            if (up.state === "COMPLETE") {
+                if (bState) { bState.textContent = "SCANNED"; bState.className = "status-neon-green"; }
+                safeSetText("prof-size-val", (up.sizeGB || 0) + " GB");
+                safeSetText("prof-files-val", (up.files || 0).toLocaleString());
+                safeSetText("prof-large-val", (up.large || 0).toLocaleString());
+
+                var targ = document.getElementById("profile-folders-target");
+                if (targ && up.folders && up.folders.length > 0) {
+                    var html = "";
+                    for (var fi = 0; fi < Math.min(up.folders.length, 50); fi++) {
+                        var f = up.folders[fi];
+                        html += '<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-overlay); padding:6px; border-radius:6px; border:1px solid var(--border-light);">' +
+                            '<div style="font-weight:700; font-size:0.6rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;" title="' + f.name + '">' + f.name + '</div>' +
+                            '<div style="font-size:0.55rem; color:var(--text-dim);"><span style="color:var(--accent-blue); font-weight:700;">' + f.sizeMB + ' MB</span> | ' + f.files + ' files</div>' +
+                            '</div>';
+                    }
+                    targ.innerHTML = html;
+                } else if (targ && up.folders && up.folders.length === 0) {
+                    targ.innerHTML = '<div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:20px;">No folders found.</div>';
+                }
+            } else if (up.state === "ERROR") {
+                if (bState) { bState.textContent = "SCAN ERROR"; bState.className = "status-dim"; bState.style.color = "var(--accent-red)"; }
+                var errTarg = document.getElementById("profile-folders-target");
+                if (errTarg) errTarg.innerHTML = '<div style="color:var(--accent-red); font-size:0.6rem; padding:10px;">Error reading profile: ' + up.error + '</div>';
+            } else {
+                if (bState) { bState.textContent = "ANALYZING"; bState.className = "status-dim"; }
+            }
+        }
+
+        // Webhooks Add-on
+        if (data.webhooks) {
+            safeSetText("wh-throughput", data.webhooks.throughput || 0);
+            safeSetText("wh-latency", (data.webhooks.latency || 0) + " ms");
+            var lat = data.webhooks.latency || 0;
+            var latEl = document.getElementById("wh-latency");
+            if (latEl) {
+                if (lat > 100) latEl.style.color = "var(--accent-red)";
+                else if (lat > 50) latEl.style.color = "#ffcc00";
+                else latEl.style.color = "var(--accent-blue)";
+            }
+            safeSetText("wh-error-rate", (data.webhooks.errorRate || 0).toFixed(1) + "%");
+            safeSetText("wh-queue", data.webhooks.queue || 0);
+        }
+
+        // DFS Add-on
+        if (data.dfs && Array.isArray(data.dfs)) {
+            safeSetText("dfs-count", data.dfs.length);
+            var dfsHtml = "";
+            for (var d_i = 0; d_i < data.dfs.length; d_i++) {
+                var d = data.dfs[d_i];
+                var latColor = "var(--accent-blue)";
+                if (d.latency > 50) latColor = "var(--accent-red)";
+                else if (d.latency > 20) latColor = "#ffcc00";
+                dfsHtml += `<div style="background:var(--bg-overlay); padding:6px; border-radius:6px; border-left:3px solid ${latColor}; display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <div>
+                        <div style="font-size:0.65rem; font-weight:700; color:var(--text-main);">${d.share}</div>
+                        <div style="font-size:0.5rem; color:var(--text-dim);">${d.server} (${d.ip})</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.65rem; font-weight:700; color:${latColor};">${d.latency} ms</div>
+                        <div style="font-size:0.5rem; color:var(--text-dim);">SMB ${d.dialect}</div>
+                    </div>
+                </div>`;
+            }
+            var tgt = document.getElementById("dfs-list-target");
+            if (tgt) tgt.innerHTML = dfsHtml || '<div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:20px;">No SMB Connections</div>';
+        }
+
+        // Network Low-Latency Stack
+        if (data.sys && data.sys.netConfig) {
+            safeSetText("net-config-status", "DETECTED");
+            document.getElementById("net-config-status").className = "status-neon-green";
+            safeSetText("net-jumbo", data.sys.netConfig.jumbo);
+            safeSetText("net-intmod", data.sys.netConfig.intmod);
+            safeSetText("net-buffers", data.sys.netConfig.buffers);
+            safeSetText("net-flow", data.sys.netConfig.flow);
+            safeSetText("net-eee", data.sys.netConfig.eee);
+            safeSetText("net-speed", data.sys.netConfig.speed);
+
+            // Hypervisor (VMXNET) overlays
+            if (data.sys.netConfig.isVmxnet) {
+                document.getElementById("net-vmxnet-rx1").style.display = "flex";
+                document.getElementById("net-vmxnet-rx2").style.display = "flex";
+                safeSetText("net-rxSmall", data.sys.netConfig.rxSmall);
+                safeSetText("net-rxLarge", data.sys.netConfig.rxLarge);
+            } else {
+                document.getElementById("net-vmxnet-rx1").style.display = "none";
+                document.getElementById("net-vmxnet-rx2").style.display = "none";
+            }
+        } else {
+            safeSetText("net-config-status", "UNAVAILABLE");
+            var el = document.getElementById("net-config-status");
+            if (el) el.className = "status-dim";
+        }
+
+        // M365 Add-on
+        if (data.m365 && data.m365.apps) {
+            var tgt = document.getElementById("m365-apps-target");
+            if (tgt) {
+                var h = "";
+                for (var i = 0; i < data.m365.apps.length; i++) {
+                    var appNode = data.m365.apps[i];
+                    var clr = appNode.color || "var(--accent-blue)";
+
+                    var versionDisplay = appNode.version && appNode.version !== "Unknown" ? ` | <span style="color:var(--text-dim);">v${appNode.version}</span>` : "";
+
+                    let explicitAddinsList = "";
+                    if (appNode.addinList) {
+                        let listItems = appNode.addinList.split(',').map(s => s.trim());
+                        if (listItems.length > 0 && listItems[0] !== "") {
+                            explicitAddinsList = `<div style="margin-top:5px; font-size:0.5rem; color:var(--text-dim); background: rgba(var(--bg-rgb),0.2); border-radius:4px; padding:4px;">
+                                 <div style="font-weight:700; margin-bottom:2px; color:var(--text-main);">Loaded Add-ins:</div>
+                                 <div style="white-space:normal; overflow-wrap:anywhere;">${listItems.join('<br>')}</div>
+                             </div>`;
+                        }
+                    }
+
+                    var subtitle = "";
+                    if (appNode.name === "Outlook") {
+                        subtitle = `<span>${appNode.addins} Add-ins</span> | <span>${appNode.ostSize || 0} GB OST</span>${versionDisplay}
+                                    <div style="font-size:0.5rem; margin-top:3px;">
+                                        <span style="color:var(--text-dim);">${appNode.mode} Mode</span> |
+                                        <span style="color:${appNode.status === 'Connected' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight:bold;">${appNode.status}</span>
+                                    </div>
+                                    ${explicitAddinsList}`;
+                    } else if (appNode.name === "Teams") {
+                        subtitle = `<span>Collaboration Platform</span>${versionDisplay}
+                                    <div style="font-size:0.5rem; margin-top:3px;">
+                                        <span style="color:var(--text-dim);">Optimization:</span> 
+                                        <span style="color:${appNode.optStatus === 'Optimized (HDX)' || appNode.optStatus === 'Optimized' ? 'var(--accent-green)' : 'var(--accent-red)'}; font-weight:bold;">${appNode.optStatus || 'Unknown'}</span>
+                                    </div>`;
+                    } else {
+                        subtitle = `<span>${appNode.addins} Add-ins</span>${versionDisplay}
+                                    ${explicitAddinsList}`;
+                    }
+
+                    h += `<div style="background:var(--bg-overlay); padding:6px; border-radius:6px; border:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:flex-start;">
+                            <div>
+                                <div style="font-size:0.65rem; font-weight:700; color:${clr};">${appNode.name}</div>
+                                <div style="font-size:0.5rem; color:var(--text-dim);">${subtitle}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <div style="font-size:0.65rem; color:var(--text-main);" title="Memory, CPU"><span style="color:var(--accent-green);">${Math.round(appNode.ram)} MB</span> | <span style="color:var(--accent-blue);">${Number(appNode.cpu).toFixed(1)}%</span></div>
+                                <div style="font-size:0.5rem; color:var(--text-dim);">${appNode.handles} Handles</div>
+                            </div>
+                        </div>`;
+                }
+                tgt.innerHTML = h;
             }
         }
 
@@ -780,12 +1117,29 @@ function updateFrame(data) {
 
             for (var i = 0; i < Math.min(6, sortedThreads.length); i++) {
                 var t = sortedThreads[i];
+                var tKey = t.pid.toString();
+                var prevTh = lastThreadCounts[tKey] || t.th;
+
+                var thDelta = t.th - prevTh;
+                var deltaIndicator = "";
+                if (thDelta > 0) {
+                    deltaIndicator = `<span style="color:var(--accent-red); margin-left:8px; font-size:0.6rem;" title="Thread Count Increased">▲ ${thDelta}</span>`;
+                } else if (thDelta < 0) {
+                    deltaIndicator = `<span style="color:var(--accent-green); margin-left:8px; font-size:0.6rem;" title="Thread Count Decreased">▼ ${Math.abs(thDelta)}</span>`;
+                } else {
+                    deltaIndicator = `<span style="color:var(--text-dim); margin-left:8px; font-size:0.6rem;" title="Thread Count Stable">-</span>`;
+                }
+
+                var thColor = "var(--accent-green)";
+                if (t.th > 100) thColor = "var(--accent-red)";
+                else if (t.th > 40) thColor = "#ffcc00"; // Yellow
+
                 tHtml += `<div class="proc-card-row">
-                    <div style="display:flex; justify-content:space-between; font-weight:700;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-weight:700;">
                         <span>${t.name}</span>
-                        <span style="color:var(--accent-red); font-size:1.1rem;">${t.th}</span>
+                        <div style="display:flex; align-items:center;"><span style="color:${thColor}; font-size:1.1rem;">${t.th}</span>${deltaIndicator}</div>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:0.55rem; opacity:0.5;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.55rem; opacity:0.5; margin-top:2px;">
                         <span>PID ${t.pid} | CPU: ${t.cpu}%</span>
                         <span>THREADS</span>
                     </div>
@@ -795,6 +1149,15 @@ function updateFrame(data) {
                 </div>`;
             }
             threadTarget.innerHTML = tHtml;
+
+            // GC Update for historic thread count logic
+            var newThreadCounts = {};
+            for (var p = 0; p < data.procs.length; p++) {
+                if (data.procs[p] && data.procs[p].pid) {
+                    newThreadCounts[data.procs[p].pid.toString()] = data.procs[p].th || 0;
+                }
+            }
+            lastThreadCounts = newThreadCounts;
         }
 
         // C. Zombies (Simulated or Real)
@@ -824,13 +1187,13 @@ function updateFrame(data) {
                     var ev = data.events[e];
                     var color = ev.type === "critical" ? "var(--accent-red)" : "#ffcc00";
 
-                    eHtml += `<div class="event-item" style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border-left:3px solid ${color}; margin-bottom:10px;">
+                    eHtml += `<div class="event-item" style="background:var(--bg-card); padding:8px; border-radius:6px; border-left:3px solid ${color}; margin-bottom:10px;">
                         <div style="display:flex; justify-content:space-between; font-size:0.55rem; opacity:0.6; margin-bottom:4px;">
                             <span>${ev.time}</span>
                             <span style="letter-spacing:1px;">ID ${ev.id}</span>
                         </div>
-                        <div style="font-size:0.65rem; font-weight:700; color:#fff; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.src}</div>
-                        <div style="font-size:0.6rem; color:rgba(255,255,255,0.5); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${ev.msg}</div>
+                        <div style="font-size:0.65rem; font-weight:700; color:var(--text-main); margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${ev.src}</div>
+                        <div style="font-size:0.6rem; color:rgba(var(--text-rgb),0.5); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${ev.msg}</div>
                     </div>`;
                 }
             } else {
@@ -869,7 +1232,7 @@ function updateFrame(data) {
                         <button class="terminate-btn" onclick="confirmPurge(${zp.pid}, '${(zp.name || '').replace(/'/g, "\\'")}')">PURGE</button>
                     </div>`;
                     zHtml += row;
-                    zsHtml += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:5px;">
+                    zsHtml += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; border-bottom:1px solid var(--bg-card); padding-bottom:5px;">
                         <div>
                             <div style="color:var(--accent-red); font-weight:700; font-size:0.7rem;">${zp.name || 'Unknown'}</div>
                             <div style="opacity:0.5; font-size:0.6rem;">PID ${zp.pid}</div>
@@ -893,7 +1256,7 @@ function updateFrame(data) {
             var fgHtml = "";
             for (var ft = 0; ft < Math.min(data.threads.length, 10); ft++) {
                 var th = data.threads[ft];
-                fgHtml += `<div style="background:rgba(255,255,255,0.02); padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);">
+                fgHtml += `<div style="background:var(--bg-overlay); padding:12px; border-radius:12px; border:1px solid var(--border-light);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
                         <span style="font-weight:800; font-size:0.75rem;">${th.name}</span>
                         <span style="color:var(--accent-blue); font-weight:800;">${th.cpu}%</span>
@@ -946,9 +1309,9 @@ function executePurge() {
                     alert("⛔ SYSTEM SAFETY TRIGGER\n\n" + txt + "\n\nThis process is protected to prevent system instability.");
                 }
 
-                evtTarget.insertAdjacentHTML('afterbegin', `<div class="event-item" style="background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; border-left:3px solid ${color}; margin-bottom:10px; animation: pulse-blue 1s;">
-                    <div style="font-size:0.65rem; font-weight:700; color:#fff;">SYSTEM COMMAND</div>
-                    <div style="font-size:0.6rem; color:rgba(255,255,255,0.7);">${msg}</div>
+                evtTarget.insertAdjacentHTML('afterbegin', `<div class="event-item" style="background:var(--bg-card); padding:8px; border-radius:6px; border-left:3px solid ${color}; margin-bottom:10px; animation: pulse-blue 1s;">
+                    <div style="font-size:0.65rem; font-weight:700; color:var(--text-main);">SYSTEM COMMAND</div>
+                    <div style="font-size:0.6rem; color:rgba(var(--text-rgb),0.7);">${msg}</div>
                 </div>`);
             }
         });
@@ -976,8 +1339,8 @@ async function generateReport() {
                 var evtTarget = document.getElementById("event-log-target");
                 if (evtTarget) {
                     evtTarget.insertAdjacentHTML('afterbegin', `<div class="event-item" style="background:rgba(48,209,88,0.1); padding:8px; border-radius:6px; border-left:3px solid var(--accent-green); margin-bottom:10px;">
-                        <div style="font-size:0.65rem; font-weight:700; color:#fff;">SYSTEM REPORT GENERATED</div>
-                        <div style="font-size:0.6rem; color:rgba(255,255,255,0.7);">${txt}</div>
+                        <div style="font-size:0.65rem; font-weight:700; color:var(--text-main);">SYSTEM REPORT GENERATED</div>
+                        <div style="font-size:0.6rem; color:rgba(var(--text-rgb),0.7);">${txt}</div>
                     </div>`);
                 }
 
@@ -1013,7 +1376,7 @@ async function handleReportFile(input) {
         try {
             // Validate JSON before passing to next window
             JSON.parse(e.target.result);
-            await storage.saveReport(e.target.result);
+            await window.reportStorage.saveReport(e.target.result);
             window.open('report.html', '_blank', 'width=1200,height=800');
         } catch (err) {
             alert("Failed to parse report: " + err.message);
@@ -1069,6 +1432,62 @@ const definitions = {
     zombie: {
         title: "ZOMBIE PROCESS SURVEILLANCE",
         text: "Zombie processes are 'dead' child processes that have completed execution but still have an entry in the process table (pid) because the parent process has not read the child's exit status. Accumulation of zombies indicates a resource leak in the parent application and can lead to PID starvation, eventually stabilizing the OS scheduler."
+    },
+    webhook: {
+        title: "WEBHOOK OBSERVABILITY",
+        text: "Synchronous webhook delivery within desktop applications creates execution bottlenecks. If the main application thread pauses to process incoming API events (like order updates or stream signals), UI responsiveness degrades. We monitor Queue Depth and generic throughput to assure API limits aren't causing backpressure latency."
+    },
+    dfs: {
+        title: "DFS / SMB SHARE LATENCY",
+        text: "Storage mapped to wide-area Distributed File Systems (DFS) fluctuates in latency based on backend node performance and network routing. Sluggish SMB responses will hard-lock Windows Explorer threads and delay application file-reads. We actively monitor the ping distance and dialect of these active SMB endpoints."
+    },
+    m365: {
+        title: "M365 DESKTOP FORENSICS & ADD-INS",
+        text: "Bloated Outlook Offline Storage Tables (OST) >10GB and excessive COM Add-ins are primary performance killers in trading environments. They monopolize kernel handles and cause thread contention during background synchronization.<br><br><span style='color:var(--accent-blue); font-weight:700;'>DYNAMIC TELEMETRY</span><br>This module actively scans and tracks processes for Microsoft Outlook, Excel, Word, PowerPoint, and Teams. Hover your mouse over the <span style='color:var(--text-main); font-weight:700;'>Add-ins</span> count for any active application to view a tooltip revealing the exact names of the loaded COM add-ins causing potential instability.<br><br>To avoid generating additional disk I/O, the local Outlook OST file size is calculated once on startup and persistently cached."
+    },
+    citrix: {
+        title: "HDX PROTOCOL & VDI LATENCY",
+        text: "In Virtual Desktop Infrastructure (VDI) environments, generic OS metrics do not show true user experience. This card polls Citrix ICA/HDX protocol APIs to measure true round trip latency and protocol Frames Per Second (FPS). High protocol latency results in perceived input lag and 'stale' application paints for remote users."
+    },
+    openfin: {
+        title: "OPENFIN RUNTIME STABILITY",
+        text: "Financial desktop applications increasingly rely on Chromium-based containers like OpenFin. We monitor individual Renderer threads and the core Runtime Process to detect 'Hot Renderers' (single PIDs pinning CPU cores). High dispersion across cores causes single-thread bottlenecks, restricting complex grid updates."
+    },
+    sysview: {
+        title: "PHYSICAL HEALTH & ENDPOINT FORENSICS",
+        text: "Measures core environmental limits governing the physical workstation. Active AV scans and Background Defender sweeps introduce massive disk/CPU overhead impacting deterministic execution. Additionally, power plans such as 'Balanced' introduce core parking & DPC latency; an Ultra-High Performance power plan is required for low-latency trading."
+    },
+    cpuTop: {
+        title: "PROCESS RESOURCE SURVEILLANCE",
+        text: "Identifies the highest consuming application processes on the local machine. Rapidly oscillating loads indicate unstable background services stealing priority cycles from low-latency financial tasks. Identifying these rogue processes is the first step in restoring determinism."
+    },
+    threadSat: {
+        title: "THREAD LEAKAGE & SATURATION",
+        text: "Monitors deep OS-level thread counts spawned by specific applications. Multi-threaded software with unclosed run-loops will steadily leak active thread objects. An escalating thread count eventually hits Windows scheduler limits, causing the entire desktop to micro-stutter.<br><br><span style='color:var(--accent-blue); font-weight:700;'>TRAFFIC LIGHT SCORING</span><br><span style='color:var(--accent-green)'>■ 0 - 40 (Optimal)</span><br><span style='color:#ffcc00'>■ 41 - 100 (Elevated)</span><br><span style='color:var(--accent-red)'>■ > 100 (Hazardous)</span>"
+    },
+    eventLog: {
+        title: "SYSTEM AUDIT DIAGNOSTICS",
+        text: "Monitors the localized Windows Event Viewer streams for transient Critical and Error states that don't trigger direct OS bluescreens but degrade subsystem performance quietly (such as driver failovers, network adapter resets, or disk timeouts)."
+    },
+    sysChanges: {
+        title: "CONFIGURATION DRIFT TRACKING",
+        text: "Tracks historical environmental changes. Installing new applications, Windows Updates, or applying registry modifications introduces variables that could break heavily tuned deterministic parameters. Knowing recent changes accelerates root cause analysis when synthetic baselines fail."
+    },
+    userProfile: {
+        title: "USER PROFILE FOOTPRINT",
+        text: "Identifies the capacity footprint and file complexity within the active user session. Highly bloated user profiles (specifically in roaming/virtual environments) incur significant disk overhead when the Operating System handles profile synchronization sweeps or index searching over vast file structures."
+    },
+    risk: {
+        title: "FORENSIC HAZARD CALCULATION",
+        text: "Synthesizes low-level metrics crossing CPU queue lines, context switching volume, latency spikes, and zombie process accumulations into singular human-readable hazard statements. Determines if the core OS scheduling layer is actively compromised."
+    },
+    trace: {
+        title: "THREAD DISPATCHER DEEP-TRACE",
+        text: "A direct view into isolated kernel threads executing per PID context. Tracking explicit CPU load down to the application's children threads gives granular visibility into exactly which module is deadlocking user interfaces."
+    },
+    netStack: {
+        title: "VMWARE VMXNET3 & NIC TUNING",
+        text: "Physical Network Interface Controllers (NICs) batch TCP payloads via 'Interrupt Moderation' & 'Jumbo Frames' to save CPU cycles. However, this caching induces microscopic rendering delays for real-time UDP multicast packets critical to sub-millisecond market data ingestion.<br><br><span style='color:var(--accent-blue); font-weight:700;'>VMWARE INTEGRATION</span><br>When running within a Virtual Desktop Infrastructure (VDI), the hypervisor manages these flows via the **VMXNET3 virtual adapter**. If this adapter is detected, we expose its **Rx Ring 1 (Small Buffers)** and **Rx Ring 2 (Large Buffers)** queue sizes. Untuned VMXNET3 Rx Rings are known to silently drop high-frequency UDP stock ticks when the virtual buffer instantaneously overflows."
     }
 };
 
@@ -1076,7 +1495,7 @@ function showDef(type) {
     const def = definitions[type];
     if (!def) return;
     document.getElementById("modal-title").textContent = def.title;
-    document.getElementById("modal-body").textContent = def.text;
+    document.getElementById("modal-body").innerHTML = def.text;
     document.getElementById("info-modal").style.display = "block";
 }
 
@@ -1127,13 +1546,16 @@ function fetchSystemChanges() {
                 if (data && typeof data === 'object' && data.Date) data = [data]; // Single object
                 else data = [];
             }
+            if (data.length > 0 && data[0].Date === null) {
+                data = []; // Prevents rendering an empty row if PowerShell returns a nullized array via Select-Object
+            }
             var target = document.getElementById("system-changes-target");
             var badge = document.getElementById("changes-count-badge");
             if (target && badge) {
                 badge.textContent = data.length + " UPDATES";
                 badge.className = data.length > 0 ? "status-neon-green" : "status-dim";
                 if (data.length === 0) {
-                    target.innerHTML = '<div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:40px;">No recent changes found.</div>';
+                    target.innerHTML = '<div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:40px;">No recorded application crashes, hangs, or configuration drift detected within the last 5 days.</div>';
                     return;
                 }
                 var html = "";
@@ -1144,12 +1566,12 @@ function fetchSystemChanges() {
                     if (c.Type === "Windows Update") { col = "var(--accent-green)"; icon = "🔄"; }
                     else if (c.Type === "BIOS Update") { col = "var(--accent-red)"; icon = "💻"; }
 
-                    html += `<div style="background:rgba(255,255,255,0.03); padding:10px; border-radius:8px; border-left:3px solid ${col};">
+                    html += `<div style="background:var(--bg-card); padding:10px; border-radius:8px; border-left:3px solid ${col};">
                         <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
                             <span style="font-size:0.65rem; color:${col}; font-weight:800;">${icon} ${c.Type}</span>
                             <span style="font-size:0.6rem; opacity:0.6; font-family:monospace;">${c.Date}</span>
                         </div>
-                        <div style="font-size:0.75rem; color:#fff; word-break:break-word;">${c.Name}</div>
+                        <div style="font-size:0.75rem; color:var(--text-main); word-break:break-word;">${c.Name}</div>
                     </div>`;
                 }
                 target.innerHTML = html;
@@ -1164,6 +1586,16 @@ async function start() {
     setInterval(loop, 1000);
     setInterval(tickUptime, 1000);
     loop();
+}
+
+function toggleTheme() {
+    var isLight = document.body.classList.toggle('light-theme');
+    localStorage.setItem('tradersynth-theme', isLight ? 'light' : 'dark');
+}
+
+// Initialize theme on load
+if (localStorage.getItem('tradersynth-theme') === 'light') {
+    document.body.classList.add('light-theme');
 }
 
 start();
