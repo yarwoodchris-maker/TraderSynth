@@ -5,14 +5,10 @@ namespace DataDesk.Engine.Services;
 
 public class ProcessForensicProvider
 {
-    private readonly string[] _targetProcesses = { "openfin", "chrome", "msedge", "tradersynth" };
+    private readonly string[] _targetProcesses = { "openfin", "chrome", "msedge", "msedgewebview2", "tradersynth", "datadesk", "engine" };
+    private readonly Dictionary<int, (TimeSpan CPU, DateTime Sample)> _cpuHistory = new();
     private readonly Dictionary<int, long> _lastMem = new();
-    private readonly Stopwatch _pulseTimer = new();
-
-    public ProcessForensicProvider()
-    {
-    }
-
+    
     public List<ProcessMetric> CaptureForensics()
     {
         var metrics = new List<ProcessMetric>();
@@ -35,60 +31,42 @@ public class ProcessForensicProvider
                 {
                     Name = p.ProcessName,
                     Pid = p.Id,
-                    MemMB = (float)(p.PrivateMemorySize64 / 1024 / 1024),
+                    Ram = (float)(p.PrivateMemorySize64 / 1024 / 1024),
+                    Threads = p.Threads.Count,
                     Handles = (uint)p.HandleCount
                 };
 
-                // 1. Native Diagnostics: GDI Objects
-                m.GdiObjects = NativeMethods.GetGuiResources(p.Handle, NativeMethods.GR_GDIOBJECTS);
+                // 1. CPU Calculation
+                try
+                {
+                    if (_cpuHistory.TryGetValue(p.Id, out var last))
+                    {
+                        var cpuDelta = p.TotalProcessorTime - last.CPU;
+                        var timeDelta = DateTime.Now - last.Sample;
+                        if (timeDelta.TotalMilliseconds > 0)
+                        {
+                            m.Cpu = (float)((cpuDelta.TotalMilliseconds / (Environment.ProcessorCount * timeDelta.TotalMilliseconds)) * 100);
+                        }
+                    }
+                    _cpuHistory[p.Id] = (p.TotalProcessorTime, DateTime.Now);
+                }
+                catch { /* Access denied to processor time */ }
 
-                // 2. Native Diagnostics: I/O
+                // 2. IO Tracking
                 if (NativeMethods.GetProcessIoCounters(p.Handle, out var io))
                 {
                     m.IoReadBytes = io.ReadTransferCount;
                 }
 
-                // 3. Phase 2: Micro-Stutter Detection
-                // We check the Responding property and also probe the GUI thread latency
-                _pulseTimer.Restart();
-                bool isResponding = p.Responding;
-                if (!isResponding)
-                {
-                    m.StutterMs = 1000; // Flag as frozen
-                }
-                else if (p.MainWindowHandle != IntPtr.Zero)
-                {
-                    if (NativeMethods.IsHungAppWindow(p.MainWindowHandle))
-                    {
-                        m.StutterMs = 500;
-                    }
-                }
-                
-                // 4. Phase 2: Memory Entropy (Thrashing Detection)
-                // If private memory is fluctuating by >10MB/sec, it indicates thrashing
-                if (_lastMem.TryGetValue(p.Id, out long lastVal))
-                {
-                    long delta = Math.Abs(p.PrivateMemorySize64 - lastVal);
-                    if (delta > 10 * 1024 * 1024) 
-                    {
-                        // Mark a virtual "Entropy Spike" in the logs if needed
-                    }
-                }
-                _lastMem[p.Id] = p.PrivateMemorySize64;
-
-                // 5. Phase 2: Thread Affinity (Core Lock Detection)
-                // Identifies which logical processors are assigned to the process.
-                try
-                {
-                    m.AffinityCore = (int)p.ProcessorAffinity.ToInt64();
-                }
-                catch { /* Access denied or process exited */ }
+                // 3. Stutter / Responsiveness
+                if (!p.Responding) m.Stutter = 1000;
+                else if (p.MainWindowHandle != IntPtr.Zero && NativeMethods.IsHungAppWindow(p.MainWindowHandle)) m.Stutter = 500;
 
                 metrics.Add(m);
             }
             catch
             {
-                // Access restricted
+                // Access restricted or process exited
             }
             finally
             {
@@ -96,9 +74,45 @@ public class ProcessForensicProvider
             }
         }
 
-        // Cleanup stale PID references in entropy dictionary
-        if (_lastMem.Count > 100) _lastMem.Clear(); 
+        // Cleanup stale PID references
+        if (_cpuHistory.Count > 200) _cpuHistory.Clear();
 
-        return metrics.OrderByDescending(x => x.MemMB).Take(10).ToList();
+        return metrics;
+    }
+
+    public void PopulateBrowserMonitor(TelemetryPayload payload, List<ProcessMetric> allProcs)
+    {
+        payload.BrowserMonitor.Active = true;
+        
+        var chromeProcs = allProcs.Where(p => p.Name.ToLower().Contains("chrome")).ToList();
+        var edgeProcs = allProcs.Where(p => p.Name.ToLower().Contains("msedge") || p.Name.ToLower().Contains("webview2")).ToList();
+
+        payload.BrowserMonitor.Chrome = MapBrowserStats(chromeProcs);
+        payload.BrowserMonitor.Edge = MapBrowserStats(edgeProcs);
+    }
+
+    private BrowserStats MapBrowserStats(List<ProcessMetric> procs)
+    {
+        var stats = new BrowserStats();
+        if (procs.Count == 0) return stats;
+
+        stats.Active = true;
+        stats.Procs = procs.Count;
+        stats.Tabs = procs.Count(p => p.Handles > 500); // Heuristic for tabs
+        stats.WorkingSet = procs.Sum(p => p.Ram);
+        stats.Private = stats.WorkingSet * 0.8f; // Estimation
+        stats.SysPct = (float)Math.Round(procs.Sum(p => p.Cpu), 1);
+
+        stats.TopProcs = procs.OrderByDescending(p => p.Ram).Take(5).Select(p => new BrowserProc
+        {
+            Pid = p.Pid,
+            Type = p.Handles > 1000 ? "Tab/Renderer" : "Service/Utility",
+            WorkingSet = p.Ram,
+            Private = p.Ram * 0.8f,
+            Threads = p.Threads,
+            Cpu = p.Cpu.ToString("F1")
+        }).ToList();
+
+        return stats;
     }
 }

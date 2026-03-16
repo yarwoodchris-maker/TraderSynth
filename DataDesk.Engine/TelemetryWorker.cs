@@ -1,22 +1,28 @@
 using System.Diagnostics;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using DataDesk.Engine.Services;
+using DataDesk.Engine.Models;
 
 namespace DataDesk.Engine;
 
-public class TelemetryWorker : BackgroundService
+public class TelemetryWorker
 {
-    private readonly ILogger<TelemetryWorker> _logger;
+    private readonly SystemMetricProvider _metrics;
+    private readonly ProcessForensicProvider _forensics;
+    private readonly TelemetryCache _cache;
     private readonly Stopwatch _stopwatch = new();
+    private readonly int _myPid;
 
-    public TelemetryWorker(ILogger<TelemetryWorker> logger)
+    public TelemetryWorker(SystemMetricProvider metrics, ProcessForensicProvider forensics, TelemetryCache cache)
     {
-        _logger = logger;
+        _metrics = metrics;
+        _forensics = forensics;
+        _cache = cache;
+        _myPid = Process.GetCurrentProcess().Id;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async Task StartAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("DataDesk Engine V5 Pulse Initialized.");
+        Console.WriteLine("[*] Telemetry Loop Started.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -24,31 +30,55 @@ public class TelemetryWorker : BackgroundService
 
             try
             {
-                // Capture high-frequency telemetry metrics
-                await CapturePulseAsync();
+                var payload = _metrics.GetCurrentMetrics();
+                var allProcs = _forensics.CaptureForensics();
+
+                // 1. Process List for Main Consumers
+                payload.Procs = allProcs.OrderByDescending(p => p.Cpu).Take(15).ToList();
+
+                // 2. Thread List for Surveillance Card
+                payload.Threads = allProcs.OrderByDescending(p => p.Threads).Take(10).ToList();
+
+                // 3. Browser Monitoring Structure
+                _forensics.PopulateBrowserMonitor(payload, allProcs);
+
+                // 4. Engine Overhead
+                var self = allProcs.FirstOrDefault(p => p.Pid == _myPid);
+                if (self != null)
+                {
+                    payload.Overhead.Engine.Pid = self.Pid;
+                    payload.Overhead.Engine.Cpu = self.Cpu;
+                    payload.Overhead.Engine.Ram = self.Ram;
+                }
+
+                // 5. Risk / Zombies
+                payload.Risk.Zombies = allProcs.Count(p => p.Stutter > 0);
+                payload.Risk.ZombieList = allProcs.Where(p => p.Stutter > 0).ToList();
+                if (payload.Risk.Zombies > 0)
+                {
+                    payload.ForensicLog.Add(new SystemEvent { 
+                        Category = "Risk", 
+                        Message = $"Detected {payload.Risk.Zombies} unresponsive processes." 
+                    });
+                }
+
+                // 6. Global Score Calculation
+                int score = 100;
+                if (payload.Cpu.Usage > 80) score -= 10;
+                if (payload.Mem.Percent > 80) score -= 10;
+                score -= (payload.Risk.Zombies * 5);
+                payload.Score = Math.Max(0, score);
+
+                _cache.Latest = payload;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Pulse collision detected in telemetry stream.");
+                Console.WriteLine($"[!] Collector Error: {ex.Message}");
             }
 
-            // Precision drift compensation for 1000ms cadence
             int elapsed = (int)_stopwatch.ElapsedMilliseconds;
-            int delay = Math.Max(5, 1000 - elapsed);
-            
+            int delay = Math.Max(10, 1000 - elapsed);
             await Task.Delay(delay, stoppingToken);
         }
-    }
-
-    private async Task CapturePulseAsync()
-    {
-        // TODO: Implement Native P/Invoke calls for GPU and Hardware metrics
-        // In C#, we use Parallel.Invoke to gather independent metrics simultaneously
-        // with significantly lower overhead than PowerShell Runspaces.
-        
-        // Example: Capture CPU, GPU, and IO counters in parallel
-        await Task.Run(() => {
-             // _logger.LogDebug("Capturing concurrent telemetry...");
-        });
     }
 }

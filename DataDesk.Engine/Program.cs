@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Diagnostics;
 using DataDesk.Engine.Services;
 using DataDesk.Engine.Models;
 
@@ -53,6 +54,17 @@ class Program
             return;
         }
 
+        // 4. Auto-Launch Browser
+        string url = $"http://localhost:{port}/";
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[!] Could not auto-launch browser: {ex.Message}");
+        }
+
         while (true)
         {
             var context = await listener.GetContextAsync();
@@ -64,6 +76,10 @@ class Program
     {
         var response = context.Response;
         string path = context.Request.Url?.AbsolutePath ?? "/";
+        if (path == "/") path = "/index.html";
+
+        string safePath = path.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString());
+        string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, safePath);
 
         try
         {
@@ -82,6 +98,14 @@ class Program
                 byte[] buffer = System.Text.Encoding.UTF8.GetBytes("{\"status\":\"UP\"}");
                 response.OutputStream.Write(buffer, 0, buffer.Length);
             }
+            else if (File.Exists(filePath))
+            {
+                // Serve Static File
+                byte[] buffer = File.ReadAllBytes(filePath);
+                response.ContentType = GetContentType(path);
+                response.ContentLength64 = buffer.Length;
+                response.OutputStream.Write(buffer, 0, buffer.Length);
+            }
             else
             {
                 response.StatusCode = 404;
@@ -96,6 +120,22 @@ class Program
         {
             response.Close();
         }
+    }
+
+    private static string GetContentType(string path)
+    {
+        string ext = Path.GetExtension(path).ToLower();
+        return ext switch
+        {
+            ".html" => "text/html",
+            ".js" => "application/javascript",
+            ".css" => "text/css",
+            ".json" => "application/json",
+            ".png" => "image/png",
+            ".jpg" => "image/jpeg",
+            ".svg" => "image/svg+xml",
+            _ => "application/octet-stream"
+        };
     }
 }
 
