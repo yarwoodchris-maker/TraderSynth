@@ -27,13 +27,13 @@ class Program
         // 3. Start Native HTTP Listener with Dynamic Port Negotiation
         int port = 9014;
         bool started = false;
-        HttpListener listener = new HttpListener();
+        HttpListener? listener = null;
 
         while (!started && port < 9100)
         {
+            listener = new HttpListener();
             try
             {
-                listener.Prefixes.Clear();
                 listener.Prefixes.Add($"http://localhost:{port}/");
                 listener.Start();
                 started = true;
@@ -42,11 +42,12 @@ class Program
             catch (HttpListenerException ex) when (ex.ErrorCode == 32 || ex.ErrorCode == 183)
             {
                 Console.WriteLine($"[!] Port {port} in use, trying next...");
+                listener.Close();
                 port++;
             }
         }
 
-        if (!started)
+        if (!started || listener == null)
         {
             Console.WriteLine("[!] Could not find an available port. Exiting.");
             return;
