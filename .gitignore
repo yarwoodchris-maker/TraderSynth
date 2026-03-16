@@ -1,0 +1,13 @@
+[Cc]onfig/
+[Oo]bj/
+[Bb]in/
+.vs/
+.vscode/
+BuildOutput/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+error.log
+history.json
+Report_*.json
