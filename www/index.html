@@ -3,17 +3,45 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>TraderSynth v3.7.0 - Analytics Pro</title>
+    <title>DATA-DESK - Enterprise Desktop Observability</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Outfit:wght@600;800&display=swap"
         rel="stylesheet">
     <link rel="icon"
-        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>TRS</text></svg>">
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%230B1120%22/><path d=%22M20 50 L40 20 L60 80 L80 50%22 stroke=%22%2300E5FF%22 stroke-width=%2210%22 fill=%22none%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>">
 </head>
 
-<body class="dark-theme">
+<body class="light-theme">
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay"
+        style="position:fixed; inset:0; z-index:9999; background:var(--bg-overlay); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;">
+
+        <!-- DATA-DESK Spinning Logo -->
+        <div class="logo-spinner-container">
+            <svg width="80" height="80" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"
+                style="filter: drop-shadow(0 0 20px rgba(var(--accent-blue-rgb), 0.5));">
+                <rect width="100" height="100" rx="20" fill="var(--bg-card)" stroke="var(--accent-blue)" stroke-width="2" />
+                <path d="M20 50 L40 20 L60 80 L80 50" stroke="var(--accent-blue)" stroke-width="8" fill="none"
+                    stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div class="spinner-ring"></div>
+        </div>
+
+        <div
+            style="font-family:'Outfit',sans-serif; font-weight:800; font-size:2.5rem; color:var(--accent-blue); letter-spacing:8px; text-shadow:0 0 30px rgba(var(--accent-blue-rgb), 0.4); margin-top:10px;">
+            DATA-DESK</div>
+        <div
+            style="font-size:0.7rem; color:var(--text-dim); letter-spacing:4px; text-transform:uppercase; font-weight:600; margin-top:5px;">
+            Initializing Enterprise Observability Engine...</div>
+        
+        <div id="loading-status"
+            style="font-size:0.85rem; color:var(--text-dim); font-family:monospace; margin-top:20px; opacity:0.7;">Awaiting CIM instance registration...</div>
+    </div>
+
+
     <svg style="width:0; height:0; position:absolute;">
         <defs>
             <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -36,429 +64,182 @@
         <div class="view-viewport">
             <div id="view-dash" class="view-page-container">
                 <div class="dash-layout">
-                    <!-- Hero Section Grid -->
+
+                    <!-- TOP PANEL: SYSTEM CONTEXT & SURVIVAL -->
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px;">
 
-                        <!-- CARD 1: Uptimes & Engine -->
+                        <!-- ENGINE PERSISTENCE & UPTIMES -->
                         <div class="metric-glass-card"
                             style="display:flex; flex-direction:column; justify-content:space-between;">
                             <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">System & Engine
-                                    Execution</span>
-                                <div style="display:flex; gap:10px;">
-                                    <div id="sim-status-indicator" class="status-neon-green"
-                                        style="font-weight:900; font-size:0.6rem;">LIVE</div>
-                                </div>
+                                <span class="card-label-small" style="color:var(--accent-blue);">Engine Execution
+                                    Persistence <span class="info-bubble" onclick="showDef('engine')">?</span></span>
+                                <div id="sim-status-indicator" class="status-neon-green"
+                                    style="font-weight:900; font-size:0.8rem;">LIVE TELEMETRY</div>
                             </div>
-
-                            <div
-                                style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:15px; margin-top:10px;">
+                            <div style="display:flex; justify-content:space-between; margin:10px 0;">
                                 <div>
                                     <div id="uptime-display"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; line-height:1; color:var(--text-main);">
+                                        style="font-family:'Outfit'; font-weight:800; font-size:1.8rem; color:var(--text-main); line-height:1;">
                                         --:--:--</div>
                                     <div
-                                        style="font-size:0.55rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:5px; font-weight:800;">
-                                        App Engine Uptime</div>
-                                </div>
-                                <div>
-                                    <div id="sys-uptime-val"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; line-height:1; color:var(--accent-blue);">
-                                        --:--:--</div>
-                                    <div
-                                        style="font-size:0.55rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:5px; font-weight:800;">
-                                        Windows System Uptime</div>
-                                </div>
-                            </div>
-
-                            <!-- Engine/Browser Stats -->
-                            <div
-                                style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:10px; padding:10px; margin-bottom:15px;">
-                                <div
-                                    style="font-size:0.55rem; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                    <div style="display:flex; gap:10px;"><span style="opacity:0.6; width:65px;">ENGINE
-                                            PID:</span> <span id="engine-pid-val"
-                                            style="color:var(--text-main); font-weight:700;">--</span></div>
-                                    <div title="Combined overhead of PowerShell engine"><span
-                                            style="color:var(--accent-blue)">CPU:</span> <span id="engine-cpu-val"
-                                            style="font-weight:700;">--%</span> <span
-                                            style="margin:0 5px; opacity:0.3;">|</span> <span
-                                            style="color:var(--accent-green)">RAM:</span> <span id="engine-ram-val"
-                                            style="font-weight:700;">-- MB</span></div>
-                                </div>
-                                <div
-                                    style="font-size:0.55rem; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-light); padding-top:6px;">
-                                    <div style="display:flex; gap:10px;"><span style="opacity:0.6; width:65px;">BROWSER
-                                            PID:</span> <span id="browser-pid-val"
-                                            style="color:var(--text-main); font-weight:700;">--</span></div>
-                                    <div title="Combined overhead of browser + child processes"><span
-                                            style="color:var(--accent-blue)">CPU:</span> <span id="browser-cpu-val"
-                                            style="font-weight:700;">--%</span> <span
-                                            style="margin:0 5px; opacity:0.3;">|</span> <span
-                                            style="color:var(--accent-green)">RAM:</span> <span id="browser-ram-val"
-                                            style="font-weight:700;">-- MB</span></div>
-                                </div>
-                            </div>
-
-                            <!-- Actions -->
-                            <div style="display:flex; gap:10px;">
-                                <button onclick="quitApp()"
-                                    style="background:rgba(255,55,95,0.2); border:1px solid var(--accent-red); color:var(--accent-red); padding:6px 15px; font-weight:700; font-size:0.6rem; border-radius:6px; cursor:pointer;">[X]
-                                    QUIT ENGINE</button>
-                                <button id="hist-btn" onclick="openHistory()"
-                                    style="display:none; background:rgba(0,210,255,0.1); border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 15px; font-weight:700; font-size:0.6rem; border-radius:6px; cursor:pointer;">[T]
-                                    TELEMETRY EXPORT</button>
-                                <button onclick="toggleTheme()"
-                                    style="background:rgba(var(--text-rgb),0.05); border:1px solid var(--border-light); color:var(--text-main); padding:6px 15px; font-weight:700; font-size:0.6rem; border-radius:6px; cursor:pointer; margin-left: auto;">
-                                    TOGGLE THEME
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- CARD 2: Health, Clipboard, User -->
-                        <div class="metric-glass-card"
-                            style="display:flex; flex-direction:column; justify-content:space-between;">
-                            <div class="card-upper-row" style="margin-bottom:15px;">
-                                <span class="card-label-small" style="color:var(--accent-blue);">Forensics &
-                                    Environment</span>
-                            </div>
-
-                            <div
-                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap: 20px;">
-                                <!-- Health Block -->
-                                <div class="health-block-vertical"
-                                    style="min-width:130px; padding:12px; border-radius:16px; background:var(--bg-overlay); border:1px solid var(--border-light);">
-                                    <div id="health-score-text"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:2.8rem; line-height:1; transition: color 0.5s ease;">
-                                        --</div>
-                                    <div
-                                        style="font-size:0.55rem; opacity:0.6; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin-top:5px;">
-                                        Health Score <span class="info-bubble" onclick="showDef('health')">?</span>
-                                    </div>
-                                </div>
-
-                                <!-- Clipboard Block -->
-                                <div
-                                    style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; background:var(--bg-overlay); padding:12px; border-radius:16px; border:1px solid var(--border-light);">
-                                    <div style="font-size:1.6rem; color:var(--accent-blue); font-family:'Outfit'; font-weight:800; line-height:1;"
-                                        id="cb-size-val">0 KB</div>
-                                    <div
-                                        style="font-size:0.55rem; opacity:0.6; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin-top:5px; margin-bottom: 8px;">
-                                        Clipboard</div>
-                                    <button onclick="purgeClipboard()"
-                                        style="background:rgba(255,55,95,0.15); border:1px solid rgba(255,55,95,0.3); color:var(--accent-red); padding:4px 15px; font-size:0.55rem; font-weight:800; border-radius:4px; cursor:pointer; transition:all 0.2s;"
-                                        onmouseover="this.style.background='var(--accent-red)'; this.style.color='var(--text-main)';"
-                                        onmouseout="this.style.background='rgba(255,55,95,0.15)'; this.style.color='var(--accent-red)';">PURGE</button>
-                                </div>
-                            </div>
-
-                            <!-- User Profile Info -->
-                            <div
-                                style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:10px; padding:10px; font-size:0.65rem; color:var(--text-main); display:grid; grid-template-columns:auto 1fr auto 1fr; gap:6px 15px; font-weight:700;">
-                                <span style="opacity:0.4;">OS:</span> <span id="profile-os"
-                                    style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">--</span>
-                                <span style="opacity:0.4;">USER:</span> <span id="profile-user"
-                                    style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8; color:var(--accent-blue);">--</span>
-                                <span style="opacity:0.4;">CPU:</span> <span id="profile-cpu"
-                                    style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">--</span>
-                                <span style="opacity:0.4;">BOOT:</span> <span id="profile-boot"
-                                    style="opacity:0.8;">--</span>
-                                <span style="opacity:0.4;">RAM:</span> <span id="profile-ram"
-                                    style="opacity:0.8;">--</span>
-                                <span style="opacity:0.4;">IP/SUB:</span> <span id="profile-ip"
-                                    style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.8;">--</span>
-                                <span style="opacity:0.4;">MONITORS:</span> <span id="profile-displays"
-                                    style="opacity:0.8; font-weight:800; color:var(--accent-blue); grid-column:span 3;">--</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-top:20px;">
-
-                        <!-- Graphics Pipeline -->
-                        <div class="metric-glass-card">
-                            <div class="card-upper-row" style="margin-bottom:12px;">
-                                <span class="card-label-small">Graphics Pipeline <span class="info-bubble"
-                                        onclick="showDef('gpu')">?</span></span>
-                                <span id="gpu-name"
-                                    style="font-family:'Inter'; font-weight:800; font-size:0.6rem; color:var(--text-main); opacity:0.8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px;">Detecting
-                                    GPU...</span>
-                            </div>
-                            <div style="display:flex; align-items:flex-end; gap:20px;">
-                                <div id="gpu-usage-val"
-                                    style="font-family:'Outfit'; font-weight:800; font-size:2rem; color:var(--accent-blue); line-height:1;">
-                                    --%</div>
-                                <div style="flex:1; padding-bottom:3px;">
-                                    <div
-                                        style="display:flex; justify-content:space-between; font-size:0.55rem; color:var(--text-dim); margin-bottom:5px;">
-                                        <span>ENC: <span id="gpu-enc-val"
-                                                style="color:var(--text-main); font-weight:700;">0%</span></span>
-                                        <span>DEC: <span id="gpu-dec-val"
-                                                style="color:var(--text-main); font-weight:700;">0%</span></span>
-                                        <span>VRAM: <span id="gpu-vram-val"
-                                                style="color:var(--accent-blue); font-weight:700;">--
-                                                MB</span></span>
-                                    </div>
-                                    <div class="gpu-eng-bar-container"
-                                        style="height:4px; background:var(--border-light); border-radius:2px; overflow:hidden;">
-                                        <div id="gpu-enc-bar" class="gpu-eng-fill"
-                                            style="width:0%; background:#00d2ff; height:100%;"></div>
-                                        <div id="gpu-dec-bar" class="gpu-eng-fill"
-                                            style="width:0%; background:#30d158; height:100%;"></div>
-                                    </div>
-                                    <div id="gpu-top-3" class="mini-consumer-list" style="margin-top:12px;"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- HDX Protocol -->
-                        <div class="metric-glass-card" id="citrix-hdx-card" style="display:none;">
-                            <div class="card-upper-row" style="margin-bottom: 10px;">
-                                <span class="card-label-small">HDX Protocol <span class="info-bubble"
-                                        onclick="showDef('citrix')">?</span></span>
-                                <span id="hdx-transport-mode" class="status-dim"
-                                    style="font-size: 0.55rem; font-weight:800;">TCP</span>
-                            </div>
-                            <div
-                                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border-light); padding-bottom:8px;">
-                                <div id="ica-adapter-name"
-                                    style="font-size:0.55rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px; opacity:0.8;">
-                                    Detecting Adapter...</div>
-                                <div id="net-link-speed"
-                                    style="font-size:0.65rem; font-weight:800; color:var(--accent-blue);">--
-                                </div>
-                            </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1.2fr; gap:15px; margin-bottom:15px;">
-                                <div>
-                                    <div id="ica-latency-val"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.8rem; color:var(--accent-blue); line-height:1;">
-                                        --ms</div>
-                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;">LATENCY
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div id="ica-fps-val"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.8rem; color:var(--accent-blue); line-height:1;">
-                                        --fps</div>
-                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;"
-                                        title="FPS is N/A in Network mode because generic OS counters do not track protocol-specific frame delivery.">
-                                        VISUAL FPS
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="net-spark-wrapper" style="height:45px; margin-bottom:15px; position:relative;">
-                                <div id="net-peak-label"
-                                    style="position:absolute; top:-2px; left:2px; font-size:0.55rem; font-family:monospace; color:var(--text-dim); opacity:0.8; z-index:5;">
-                                    PEAK: --</div>
-                                <div
-                                    style="position:absolute; bottom:2px; left:2px; font-size:0.5rem; color:var(--text-dim); opacity:0.6; z-index:5;">
-                                    -60s</div>
-                                <div
-                                    style="position:absolute; bottom:2px; right:2px; font-size:0.5rem; color:var(--text-dim); opacity:0.6; z-index:5;">
-                                    NOW</div>
-                                <svg id="net-spark-svg"
-                                    style="width:100%; height:100%; display:block; overflow:visible;"
-                                    preserveAspectRatio="none" viewBox="0 0 300 100">
-                                    <path id="net-in-path"
-                                        style="fill:none; stroke:var(--accent-blue); stroke-width:3; opacity:0.8;">
-                                    </path>
-                                    <path id="net-out-path"
-                                        style="fill:none; stroke:var(--accent-green); stroke-width:3; opacity:0.8;">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div
-                                style="font-size:0.6rem; display:flex; justify-content:space-between; border-top:1px solid var(--border-light); padding-top:10px;">
-                                <div style="color:var(--text-dim);">
-                                    DELAY: <span id="ica-input-delay"
-                                        style="color:var(--text-main); font-weight:800;">--</span>ms
-                                </div>
-                                <div style="color:var(--text-dim);">
-                                    <span style="color:var(--accent-blue); font-weight:700;">IN:</span> <span
-                                        id="ica-bw-in"
-                                        style="margin-right:8px; font-weight:700; color:var(--text-main);">--</span>
-                                    <span style="color:var(--accent-green); font-weight:700;">OUT:</span> <span
-                                        id="ica-bw-out" style="font-weight:700; color:var(--text-main);">--</span>
-                                    KB/s
-                                </div>
-                            </div>
-                            <div id="citrix-config-list" class="scroller-y-auto"
-                                style="margin-top:10px; border-top:1px solid var(--border-light); padding-top:8px; display:flex; flex-direction:column; gap:4px; height:50px; overflow-y:auto; padding-right:5px;">
-                                <div style="opacity:0.4; font-size:0.55rem; text-align:center; padding-top:5px;">
-                                    Scanning Config...</div>
-                            </div>
-                        </div>
-                        <!-- Network Stack Low Latency Config -->
-                        <div class="metric-glass-card">
-                            <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">Low-Latency Net
-                                    Config
-                                    <span class="info-bubble" onclick="showDef('netStack')">?</span></span>
-                                <span id="net-config-status" class="status-neon-green"
-                                    style="font-size:0.55rem;">--</span>
-                            </div>
-                            <div
-                                style="margin-top:10px; display:grid; grid-template-columns: 1fr; gap:8px; font-size:0.55rem;">
-                                <div
-                                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card); padding-bottom:3px;">
-                                    <span style="color:var(--text-dim);">Jumbo Packet</span>
-                                    <span id="net-jumbo" style="color:var(--text-main); font-weight:700;">--</span>
-                                </div>
-                                <div
-                                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card); padding-bottom:3px;">
-                                    <span style="color:var(--text-dim);">Interrupt Moderation</span>
-                                    <span id="net-intmod" style="color:var(--text-main); font-weight:700;">--</span>
-                                </div>
-                                <div
-                                    style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card); padding-bottom:3px;">
-                                    <span style="color:var(--text-dim);">Flow Control</span>
-                                    <span id="net-flow" style="color:var(--text-main); font-weight:700;">--</span>
-                                </div>
-                                <div id="net-vmxnet-rx1"
-                                    style="display:none; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card); padding-bottom:3px;">
-                                    <span style="color:var(--accent-blue);">VMXNET3 Rx Ring 1</span>
-                                    <span id="net-rxSmall" style="color:var(--text-main); font-weight:700;">--</span>
-                                </div>
-                                <div id="net-vmxnet-rx2"
-                                    style="display:none; justify-content:space-between; align-items:center; border-bottom:1px solid var(--bg-card); padding-bottom:3px;">
-                                    <span style="color:var(--accent-blue);">VMXNET3 Rx Ring 2</span>
-                                    <span id="net-rxLarge" style="color:var(--text-main); font-weight:700;">--</span>
-                                </div>
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <span style="color:var(--text-dim);">Speed & Duplex</span>
-                                    <span id="net-speed" style="color:var(--text-main); font-weight:700;">--</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Add-on Telemetry (Webhooks, DFS, M365, Net Stack) -->
-                    <div
-                        style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-top:20px; margin-bottom:20px;">
-
-                        <!-- Webhooks -->
-                        <div class="metric-glass-card">
-                            <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">Webhook
-                                    Observability <span class="info-bubble" onclick="showDef('webhook')">?</span></span>
-                                <span id="wh-status-badge" class="status-neon-green"
-                                    style="font-size:0.55rem;">ACTIVE</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:15px;">
-                                <div>
-                                    <div id="wh-throughput"
-                                        style="font-size:1.2rem; font-weight:800; color:var(--text-main);">
-                                        --
-                                    </div>
-                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">MSG/SEC
-                                    </div>
+                                        style="font-size:0.8rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:4px; font-weight:800;">
+                                        App Engine</div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div id="wh-latency"
-                                        style="font-size:1.2rem; font-weight:800; color:var(--accent-blue);">-- ms
-                                    </div>
-                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">LATENCY
-                                    </div>
+                                    <div id="sys-uptime-val"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:1.8rem; color:var(--accent-blue); line-height:1;">
+                                        --:--:--</div>
+                                    <div
+                                        style="font-size:0.8rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-top:4px; font-weight:800;">
+                                        Windows System</div>
                                 </div>
                             </div>
                             <div
-                                style="margin-top:10px; display:flex; justify-content:space-between; font-size:0.6rem; color:var(--text-dim); border-top:1px solid var(--border-light); padding-top:8px;">
-                                <div>ERROR RATE: <span id="wh-error-rate" style="color:var(--text-main);">--%</span>
+                                style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:12px; padding:10px; font-size:0.85rem;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                                    <span><span style="opacity:0.4;">ENGINE [PID <span
+                                                id="engine-pid-val">--</span>]:</span> <span id="engine-cpu-val"
+                                            style="color:var(--accent-blue); font-weight:700;">--</span>% <span
+                                            style="opacity:0.2;">|</span> <span id="engine-ram-val"
+                                            style="color:var(--accent-green); font-weight:700;">--</span> MB</span>
                                 </div>
-                                <div>QUEUE: <span id="wh-queue" style="color:var(--text-main);">--</span></div>
+                                <div id="os-info-box"
+                                    style="border-top:1px solid var(--border-light); padding-top:6px; opacity:0.6; display:flex; justify-content:space-between; font-size:0.8rem;">
+                                    <span id="cpu-model-name">--</span>
+                                    <span id="os-ver-val">--</span>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:10px; margin-top:12px;">
+                                <button onclick="quitApp()"
+                                    style="background:rgba(244,63,94,0.1); border:1px solid var(--accent-red); color:var(--accent-red); padding:5px 12px; font-weight:800; font-size:0.8rem; border-radius:4px; cursor:pointer;">QUIT
+                                    ENGINE</button>
+                                <button onclick="toggleTheme()"
+                                    style="margin-left:auto; background:var(--bg-overlay); border:1px solid var(--border-light); color:var(--text-main); padding:5px 12px; font-weight:800; font-size:0.8rem; border-radius:4px; cursor:pointer;">THEME</button>
                             </div>
                         </div>
 
-                        <!-- DFS SMB -->
-                        <div class="metric-glass-card">
+                        <!-- HEALTH & ENVIRONMENTAL FORENSICS -->
+                        <div class="metric-glass-card"
+                            style="display:flex; flex-direction:column; justify-content:space-between;">
                             <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">Active DFS/SMB
-                                    Shares <span class="info-bubble" onclick="showDef('dfs')">?</span></span>
-                                <span class="status-dim" style="font-size:0.55rem;"><span id="dfs-count">0</span>
-                                    CONNS</span>
+                                <span class="card-label-small" style="color:var(--accent-blue);">Forensic Stability &
+                                    Environment</span>
                             </div>
-                            <div id="dfs-list-target" class="scroller-y-auto"
-                                style="margin-top:10px; height:60px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:6px;">
-                                <div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:20px;">No
-                                    SMB
-                                    Connections</div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; align-items:center;">
+                                <div
+                                    style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:16px; padding:15px; text-align:center;">
+                                    <div id="health-score-text"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:3rem; line-height:1;">--
+                                    </div>
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.6; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin-top:5px;">
+                                        Deterministic Score <span class="info-bubble"
+                                            onclick="showDef('health_audit')">?</span></div>
+                                </div>
+                                <div
+                                    style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:16px; padding:15px; text-align:center;">
+                                    <div id="cb-size-val"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:1.8rem; line-height:1; color:var(--accent-blue);">
+                                        -- KB</div>
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.6; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin-top:5px; margin-bottom:8px;">
+                                        Clipboard Buffer</div>
+                                    <button onclick="purgeClipboard()"
+                                        style="background:var(--accent-red); color:white; border:none; padding:3px 10px; font-size:0.8rem; font-weight:900; border-radius:3px; cursor:pointer;">PURGE</button>
+                                </div>
+                            </div>
+                            <div
+                                style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:12px; padding:10px; font-size:0.85rem; display:grid; grid-template-columns:1fr 1fr; gap:4px 15px;">
+                                <span><span style="opacity:0.4;">USER:</span> <span id="profile-user"
+                                        style="color:var(--accent-blue); font-weight:700;">--</span></span>
+                                <span><span style="opacity:0.4;">IP/SUB:</span> <span id="profile-ip">--</span></span>
+                                <span><span style="opacity:0.4;">BOOT:</span> <span id="profile-boot">--</span></span>
+                                <span style="grid-column: span 2;"><span style="opacity:0.4;">DISPLAYS:</span> <span
+                                        id="profile-displays"
+                                        style="font-weight:800; color:var(--accent-blue);">--</span></span>
                             </div>
                         </div>
-
-                        <!-- M365 Desktop -->
-                        <div class="metric-glass-card" style="display:flex; flex-direction:column; overflow:hidden;">
-                            <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">M365 Desktop
-                                    Performance <span class="info-bubble" onclick="showDef('m365')">?</span></span>
-                                <span id="m365-status" class="status-neon-green" style="font-size:0.55rem;">OK</span>
-                            </div>
-                            <div id="m365-apps-target"
-                                style="margin-top:10px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; flex:1; padding-right:5px;"
-                                class="scroller-y-auto">
-                                <div style="opacity:0.6; font-size:0.55rem; text-align:center; padding:10px;">
-                                    Scanning
-                                    M365 Applications...</div>
-                            </div>
-                        </div>
-
                     </div>
 
-                    <!-- Metrics Grid -->
-                    <!-- Metrics Grid (4x2 Unified Layout) -->
-                    <div class="dash-master-unified">
+                    <!-- ROW 1: PRIMARY COMPUTE STACK -->
+                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:20px; margin-bottom:25px;">
 
-                        <!-- ROW 1: Core Telemetry -->
-                        <div class="metric-glass-card">
+                        <!-- COMPUTE VISUALS (Visuals & Wait/Krn/Ctx) -->
+                        <div class="metric-glass-card" style="min-height:500px; display:flex; flex-direction:column;">
                             <div class="card-upper-row">
-                                <div class="card-label-small">Processor Dynamics <span class="info-bubble"
-                                        onclick="showDef('cpu')">?</span></div>
-                                <div id="cpu-usage-percent" class="val-big-display">--%</div>
+                                <span class="card-label-small">Compute Visuals <span class="info-bubble"
+                                        onclick="showDef('cpu')">?</span></span>
+                                <span id="cpu-usage-percent"
+                                    style="font-family:'Outfit'; font-weight:800; font-size:1.1rem; color:var(--accent-blue);">--%</span>
                             </div>
-                            <div class="spark-canvas-wrapper">
+                            <!-- New Dynamic CPU Name & Speed Element -->
+                            <div
+                                style="font-size:0.75rem; text-align:right; margin-top:-5px; margin-bottom:5px; padding-right:5px;">
+                                <span id="cpu-model-display" style="opacity:0.6; margin-right:5px;">--</span>
+                                <span id="cpu-speed-display"
+                                    style="color:var(--accent-blue); font-weight:800;">--</span>
+                            </div>
+                            <div class="spark-canvas-wrapper" style="height:60px; margin-bottom:10px;">
                                 <svg id="cpu-spark-svg" class="spark-canvas" preserveAspectRatio="none"
                                     viewBox="0 0 300 100">
                                     <path class="spark-fill" d=""></path>
                                     <path class="spark-path" d=""></path>
                                 </svg>
                             </div>
-                            <div id="cpu-core-grid" class="core-heat-grid"></div>
+                            <!-- Core Heatmap Integrated -->
+                            <div id="cpu-core-grid" class="core-heat-grid" style="margin-top:0;"></div>
+
                             <div
-                                style="margin-top:10px; display:grid; grid-template-columns: 1fr 1fr; gap:5px; font-size:0.55rem; font-weight:700; color:var(--text-dim);">
-                                <div>WAIT: <span id="cpu-queue-val" style="color:var(--text-main);">0</span></div>
-                                <div>KRNQ: <span id="cpu-kernel-val" style="color:var(--text-main);">0%</span></div>
-                                <div>CTX: <span id="cpu-ctx-val" style="color:var(--text-main);">0</span></div>
-                                <div id="cs-impact-box"
-                                    style="display:flex; align-items:center; gap:4px; grid-column: span 2; margin-top:2px;">
-                                    <span style="opacity:0.5;">SATURATION:</span>
-                                    <div id="cs-impact-grid" style="display:flex; gap:2px;">
-                                        <div class="cs-dot"
-                                            style="width:6px; height:6px; background:rgba(var(--text-rgb),0.1); border-radius:1px;">
-                                        </div>
-                                        <div class="cs-dot"
-                                            style="width:6px; height:6px; background:rgba(var(--text-rgb),0.1); border-radius:1px;">
-                                        </div>
-                                        <div class="cs-dot"
-                                            style="width:6px; height:6px; background:rgba(var(--text-rgb),0.1); border-radius:1px;">
-                                        </div>
-                                        <div class="cs-dot"
-                                            style="width:6px; height:6px; background:rgba(var(--text-rgb),0.1); border-radius:1px;">
-                                        </div>
-                                        <div class="cs-dot"
-                                            style="width:6px; height:6px; background:rgba(var(--text-rgb),0.1); border-radius:1px;">
-                                        </div>
-                                    </div>
+                                style="margin-top:auto; padding-top:15px; border-top:1px solid rgba(255,255,255,0.05); display:flex; flex-direction:column; gap:12px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.5; text-transform:uppercase; font-weight:900;">
+                                        Wait Queue</div>
+                                    <div id="cpu-queue-val"
+                                        style="font-size:0.9rem; font-weight:900; color:var(--accent-red);">0</div>
                                 </div>
-                                <div>JITR: <span id="gpu-jitter-val" style="color:var(--accent-blue);">--</span>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.5; text-transform:uppercase; font-weight:900;">
+                                        Kernel Time</div>
+                                    <div id="cpu-kernel-val"
+                                        style="font-size:0.9rem; font-weight:900; color:var(--accent-blue);">0%</div>
+                                </div>
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.5; text-transform:uppercase; font-weight:900;">
+                                        Context Switch</div>
+                                    <div id="cpu-ctx-val"
+                                        style="font-size:0.9rem; font-weight:900; color:var(--accent-green);">0</div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="metric-glass-card">
+                        <!-- COMPUTE CONSUMERS (Top PID Monitoring) -->
+                        <div class="metric-glass-card" style="min-height:500px; display:flex; flex-direction:column;">
                             <div class="card-upper-row">
-                                <div class="card-label-small">Memory Pressure <span class="info-bubble"
-                                        onclick="showDef('mem')">?</span></div>
-                                <div id="mem-usage-percent" class="val-big-display">--%</div>
+                                <span class="card-label-small" style="color:var(--accent-blue);">Compute
+                                    Consumers <span class="info-bubble" onclick="showDef('cpuTop')">?</span></span>
+                                <span id="proc-count-badge" class="status-neon-green" style="font-size:0.8rem;">0
+                                    PIDS</span>
                             </div>
-                            <div class="spark-canvas-wrapper">
+                            <div id="top-procs-list" class="scroller-y-auto"
+                                style="flex:1; margin-top:10px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+                                <div style="opacity:0.3; font-size:0.8rem; text-align:center; padding-top:20px;">
+                                    Sampling kernel cycles...</div>
+                            </div>
+                        </div>
+
+                        <!-- MEMORY DETERMINISM (RAM) -->
+                        <div class="metric-glass-card" style="min-height:500px; display:flex; flex-direction:column;">
+                            <div class="card-upper-row">
+                                <span class="card-label-small">Memory Determinism <span class="info-bubble"
+                                        onclick="showDef('mem')">?</span></span>
+                                <span id="mem-usage-percent"
+                                    style="font-family:'Outfit'; font-weight:800; font-size:1.1rem; color:var(--accent-green);">--%</span>
+                            </div>
+                            <div class="spark-canvas-wrapper" style="height:60px; margin-bottom:10px;">
                                 <svg id="mem-spark-svg" class="spark-canvas" preserveAspectRatio="none"
                                     viewBox="0 0 300 100">
                                     <path class="spark-fill" d=""></path>
@@ -466,388 +247,960 @@
                                 </svg>
                             </div>
                             <div id="mem-available-box"
-                                style="margin-top:15px; text-align:right; font-size:0.7rem; color:var(--text-dim); font-weight:700;">
-                                --</div>
-                            <div id="mem-top-3" class="mini-consumer-list"
-                                style="margin-top:15px; border-top:1px solid var(--border-light); padding-top:10px;">
-                            </div>
-                        </div>
+                                style="font-size:1.1rem; font-weight:800; color:var(--text-main); margin-bottom:15px; border-bottom:1px solid var(--border-light); padding-bottom:8px;">
+                                Available: -- GB</div>
 
-                        <div class="metric-glass-card">
-                            <div class="card-upper-row">
-                                <span class="card-label-small">Storage IOPS <span class="info-bubble"
-                                        onclick="showDef('disk')">?</span></span>
-                                <span id="disk-tp-box" class="val-big-display">--</span>
-                            </div>
-                            <div class="spark-canvas-wrapper">
-                                <svg id="disk-spark-svg" class="spark-canvas" preserveAspectRatio="none"
-                                    viewBox="0 0 300 100">
-                                    <path class="spark-fill" d=""></path>
-                                    <path class="spark-path" d=""></path>
-                                </svg>
-                            </div>
-                            <div style="margin-top:12px; display:flex; justify-content:space-between;">
-                                <div id="disk-lat-box"
-                                    style="font-size:0.65rem; color:var(--text-dim); font-weight:700;">LATENCY:
-                                    --
-                                </div>
-                                <div id="disk-queue-box"
-                                    style="font-size:0.65rem; color:var(--text-dim); font-weight:700;">QUEUE:
-                                    --
-                                </div>
-                            </div>
-                            <div style="margin-top:4px; display:flex; justify-content:space-between; opacity:0.6;">
-                                <div id="disk-read-iops" style="font-size:0.55rem;">R: --</div>
-                                <div id="disk-write-iops" style="font-size:0.55rem;">W: --</div>
-                            </div>
-                        </div>
-
-                        <div class="metric-glass-card" id="openfin-card">
-                            <div class="card-upper-row">
-                                <span class="card-label-small">Runtime Stability <span class="info-bubble"
-                                        onclick="showDef('openfin')">?</span></span>
-                                <span id="ofin-health-tag" class="status-neon-green" style="font-size:0.6rem;">100%
-                                    HEALTH</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:15px;">
-                                <div>
-                                    <div id="ofin-renderers"
-                                        style="font-size:1.1rem; font-weight:800; color:var(--text-main);">
-                                        --
-                                    </div>
-                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">RENDERERS
+                            <div style="display:flex; flex-direction:column; gap:12px;">
+                                <div style="display:flex; justify-content:flex-end; align-items:center;">
+                                    <div style="text-align:right;">
+                                        <div id="mem-commit-val"
+                                            style="font-size:1.2rem; font-weight:800; color:var(--accent-blue);">0%
+                                        </div>
+                                        <div style="font-size:0.8rem; color:var(--text-dim); text-transform:uppercase;">
+                                            Commit Charge</div>
                                     </div>
                                 </div>
-                                <div style="text-align:right;">
-                                    <div id="ofin-ram"
-                                        style="font-size:0.9rem; font-weight:700; color:var(--accent-blue);">-- MB
+                                <!-- Current and Peak Metrics -->
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin:5px 0;">
+                                    <div
+                                        style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:10px; padding:12px;">
+                                        <div id="mem-swaps-val"
+                                            style="font-size:1.2rem; font-weight:800; color:var(--text-main);">0</div>
+                                        <div
+                                            style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">
+                                            Swaps/sec (PEAK: <span id="mem-swaps-peak">0</span>)</div>
                                     </div>
-                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">RAM</div>
-                                </div>
-                            </div>
-                            <div id="ofin-rvm-details"
-                                style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border-light); display:none;">
-                            </div>
-                            <div id="ofin-hot-box"
-                                style="margin-top:10px; padding:6px; background:var(--bg-card); border-radius:6px; display:none;">
-                                <div class="card-label-small"
-                                    style="font-size:0.5rem; color:var(--accent-red); margin-bottom:2px;">
-                                    HOT
-                                    RENDERER
+                                    <div
+                                        style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:10px; padding:12px;">
+                                        <div id="mem-pagefile-val"
+                                            style="font-size:1.2rem; font-weight:800; color:var(--accent-blue);">0.0%
+                                        </div>
+                                        <div
+                                            style="font-size:0.75rem; color:var(--text-dim); text-transform:uppercase; font-weight:800; letter-spacing:0.5px;">
+                                            Pagefile (PEAK: <span id="mem-pagefile-peak">0.0%</span>)</div>
+                                    </div>
                                 </div>
                                 <div
-                                    style="display:flex; justify-content:space-between; font-size:0.65rem; font-weight:700;">
-                                    <span id="ofin-hot-id" style="color:var(--text-main);">PID --</span>
-                                    <span id="ofin-hot-cpu" style="color:var(--accent-red);">--%</span>
-                                </div>
-                            </div>
-                            <div id="ofin-flags" style="margin-top:10px; display:flex; gap:4px; flex-wrap:wrap;">
-                            </div>
-
-                            <!-- Descriptive Text for New Capabilities -->
-                            <div
-                                style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border-light); font-size:0.55rem; color:var(--text-dim); line-height:1.4;">
-                                <div style="margin-bottom:4px; display:flex; gap:6px;">
-                                    <span style="color:var(--accent-blue); font-weight:700;">CPU Affinity:</span>
-                                    <span>Blue borders on CPU Grid indicate cores allowed for OpenFin.</span>
-                                </div>
-                                <div style="display:flex; gap:6px;">
-                                    <span style="color:var(--accent-green); font-weight:700;">Efficiency:</span>
-                                    <span>Measures thread load balance. Low score indicates single-core
-                                        bottleneck.</span>
+                                    style="background:var(--bg-overlay); border:1px solid var(--border-light); border-radius:8px; padding:10px; font-size:0.8rem; line-height:1.4; color:var(--text-dim);">
+                                    <span style="color:var(--accent-blue); font-weight:800;">DETERMINISTIC GUARD:</span>
+                                    High swaps/sec and pagefile growth indicates serious memory pressure. Desktops
+                                    require
+                                    <span style="color:var(--text-main)">RAM > Commit Charge</span> for zero-latency
+                                    execution.
                                 </div>
                             </div>
                         </div>
 
-                        <div class="metric-glass-card" id="sysview-health-card">
-                            <div class="card-upper-row">
-                                <span class="card-label-small">Physical Health Profile <span class="info-bubble"
-                                        onclick="showDef('sysview')">?</span></span>
-                                <span id="sysview-status-tag" class="status-neon-green"
-                                    style="font-size:0.6rem;">ANALYZING</span>
-                            </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:20px;">
-                                <div>
-                                    <div id="sysview-disk-perc" class="val-big-display" style="font-size:1.4rem;">--
-                                        %
-                                    </div>
-                                    <div class="card-label-small" style="font-size:0.55rem;">C: Drive Capacity Used
-                                    </div>
-                                </div>
-                                <div>
-                                    <div id="sysview-disk-free" class="val-big-display" style="font-size:1.4rem;">--
-                                        GB
-                                    </div>
-                                    <div class="card-label-small" style="font-size:0.55rem;">C: Drive Free Space
-                                    </div>
-                                </div>
-                                <div style="margin-top:10px;">
-                                    <div id="sysview-av-status"
-                                        style="font-size:0.9rem; font-weight:800; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                        --</div>
-                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">Windows
-                                        Defender</div>
-                                </div>
-                                <div style="margin-top:10px; text-align:right;">
-                                    <div id="sysview-power-plan"
-                                        style="font-size:0.9rem; font-weight:800; color:var(--accent-blue); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                        --</div>
-                                    <div class="card-label-small" style="font-size:0.5rem; opacity:0.5;">Active
-                                        Power
-                                        Scheme
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border-light);">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                    <span class="card-label-small" style="font-size:0.55rem; opacity:0.6;">RECENT
-                                        SOFTWARE UPDATES</span>
-                                    <span class="card-label-small"
-                                        style="font-size:0.55rem; color:var(--accent-blue);">.NET: <span
-                                            id="sysview-dotnet">--</span></span>
-                                </div>
-                                <div id="sysview-software-target" class="scroller-y-auto"
-                                    style="height:60px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding-right:5px;">
-                                    <div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:15px;">
-                                        Scanning Installed Registry...</div>
-                                </div>
-                            </div>
+                        <!-- NVIDIA VRAM MONITOR (Condensed) -->
+                        <div id="vram-gpus-container" class="scroller-y-auto" style="display:flex; flex-direction:column; gap:20px; max-height:500px; overflow-y:auto; overflow-x:hidden;">
+                            <div class="metric-glass-card" style="min-height:500px; display:flex; align-items:center; justify-content:center; opacity:0.5; font-size:0.8rem; text-align:center;">Awaiting NVIDIA SMI Telemetry...</div>
                         </div>
-
-
-                        <!-- ROW 2: Deep Analytics (Formerly Sidebar) -->
-                        <div class="metric-glass-card">
-                            <div class="card-label-small" style="margin-bottom:15px; color:var(--accent-blue);">CPU
-                                Top
-                                Consumers <span class="info-bubble" onclick="showDef('cpuTop')">?</span></div>
-                            <div id="process-grid-target" class="scroller-y-auto"
-                                style="height:140px; overflow-y:auto; padding-right:5px;"></div>
-                        </div>
-
-                        <div class="metric-glass-card">
-                            <div class="card-label-small" style="margin-bottom:15px; color:var(--text-main);">Thread
-                                Saturation
-                                Rank
-                                <span class="info-bubble" onclick="showDef('threadSat')">?</span>
-                            </div>
-                            <div id="thread-grid-target" class="scroller-y-auto"
-                                style="height:140px; overflow-y:auto; padding-right:5px;"></div>
-                        </div>
-
-                        <div class="metric-glass-card">
-                            <div class="card-label-small" style="margin-bottom:15px; color:var(--accent-red);">
-                                Zombie
-                                Surveillance <span class="info-bubble" onclick="showDef('zombie')">?</span></div>
-                            <div id="zombie-monitor-sidebar" style="background:transparent; border:none; padding:0;">
-                                <div style="font-size:0.75rem; font-weight:800; color:var(--text-dim);">Scanning...
-                                </div>
-                            </div>
-                        </div>
-
-
 
                     </div>
 
-
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1.2fr; gap:20px; margin-top:20px;">
-                        <div class="metric-glass-card">
+                    <!-- NEW ROW 2 (Promoted): UNIFIED FORENSIC INTELLIGENCE -->
+                    <div style="display:grid; grid-template-columns: 1fr; gap:25px; margin-bottom:40px;">
+                        <div class="metric-glass-card" style="border-top: 1px solid var(--accent-blue);">
                             <div class="card-upper-row">
-                                <span class="card-label-small" style="color:#ffcc00;">Event Log
-                                    Surveillance <span class="info-bubble" onclick="showDef('eventLog')">?</span></span>
-                                <span id="event-log-status" class="status-dim" style="font-size:0.55rem;">LIVE</span>
+                                <span class="card-label-small" style="color:var(--accent-blue);">Forensic Intelligence
+                                    Insights <span class="info-bubble" onclick="showDef('risk')">?</span></span>
+                                <span id="ai-status-badge" class="status-neon-green"
+                                    style="font-size:0.8rem;">CALIBRATING</span>
                             </div>
-                            <div id="event-log-target" class="scroller-y-auto"
-                                style="height:160px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;">
-                                <div style="opacity:0.3; font-size:0.6rem;">No Recent Critical Events</div>
+                            <div id="forensic-rationale-target"
+                                style="margin-top:15px; display:flex; flex-direction:column; gap:12px;">
+                                <div style="opacity:0.3; font-size:0.85rem; text-align:center; padding-top:40px;">
+                                    Initializing Intelligence Engine...</div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- System Changes (NEW) -->
-                        <div class="metric-glass-card">
-                            <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">System Changes
-                                    (Last 5
-                                    Days) <span class="info-bubble" onclick="showDef('sysChanges')">?</span></span>
-                                <span id="changes-count-badge" class="status-dim" style="font-size: 0.6rem;">0
-                                    UPDATES</span>
-                            </div>
-                            <div id="system-changes-target" class="scroller-y-auto"
-                                style="height:160px; overflow-y:auto; margin-top:10px; padding-right:5px; display:flex; flex-direction:column; gap:6px;">
-                                <div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:40px;">
-                                    Fetching
-                                    recent updates...</div>
-                            </div>
-                        </div>
 
-                        <!-- User Profile Breakdown -->
-                        <div class="metric-glass-card">
+                    <!-- NEW ROW 3 (Swapped): NETWORK & BROWSER CLUSTER (2-Card Wide) -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:25px; margin-bottom:25px;">
+                        <div class="metric-glass-card" id="openfin-card">
                             <div class="card-upper-row">
-                                <span class="card-label-small" style="color:var(--accent-blue);">User Profile
-                                    Breakdown
-                                    <span class="info-bubble" onclick="showDef('userProfile')">?</span></span>
-                                <span id="profile-state-badge" class="status-dim"
-                                    style="font-size: 0.6rem;">ANALYZING</span>
-                            </div>
-                            <div
-                                style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-top:10px; padding-bottom:10px; border-bottom:1px solid var(--border-light);">
-                                <div>
-                                    <div id="prof-size-val"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; color:var(--text-main); line-height:1;">
-                                        -- GB</div>
-                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;">PROFILE
-                                        SIZE
-                                    </div>
+                                <span class="card-label-small" style="color:#f9901d;">OpenFin Forensic <span
+                                        class="info-bubble" onclick="showDef('openfin')">?</span></span>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span id="ofin-env-tag"
+                                        style="font-size:0.6rem; opacity:0.5; font-weight:800; text-transform:uppercase; letter-spacing:1px;"></span>
+                                    <span id="ofin-health-tag" class="status-neon-green"
+                                        style="font-size:0.8rem;">OK</span>
                                 </div>
-                                <div style="text-align:center;">
-                                    <div id="prof-files-val"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; color:var(--accent-blue); line-height:1;">
-                                        --</div>
-                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;">TOTAL
-                                        FILES
-                                    </div>
+                            </div>
+
+                            <div id="ofin-eco-ram"
+                                style="margin-top:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px;">
+                            </div>
+
+                            <!-- Deep Diagnostics -->
+                            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.03);">
+                                <div>
+                                    <div style="font-size:0.7rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Windows</div>
+                                    <div id="ofin-window-count" style="font-size:0.85rem; font-weight:800; color:var(--text-main);">--</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.7rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Commit MB</div>
+                                    <div id="ofin-virtual-mb" style="font-size:0.85rem; font-weight:800; color:var(--accent-blue);">--</div>
                                 </div>
                                 <div style="text-align:right;">
-                                    <div id="prof-large-val"
-                                        style="font-family:'Outfit'; font-weight:800; font-size:1.6rem; color:#ffcc00; line-height:1;">
-                                        --</div>
-                                    <div class="card-label-small" style="font-size:0.55rem; opacity:0.5;">LARGE
-                                        FILES
-                                        (>50MB)</div>
+                                    <div style="font-size:0.7rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Recoveries</div>
+                                    <div id="ofin-recovery-count" style="font-size:0.85rem; font-weight:800; color:var(--accent-green);">0</div>
                                 </div>
                             </div>
-                            <div class="card-label-small" style="font-size:0.55rem; opacity:0.6; margin-top:10px;">
-                                ROOT
-                                DIRECTORY ANALYSIS</div>
-                            <div id="profile-folders-target" class="scroller-y-auto"
-                                style="height:60px; overflow-y:auto; margin-top:5px; padding-right:5px; display:flex; flex-direction:column; gap:4px;">
-                                <div style="opacity:0.3; font-size:0.6rem; text-align:center; padding-top:20px;">
-                                    Scanning structure...</div>
+
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; padding:0 8px;">
+                                <div>
+                                    <div style="font-size:0.7rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Hang State</div>
+                                    <div id="ofin-hang-state" style="font-size:0.75rem; font-weight:800; color:var(--accent-green);">CLEAN</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div style="font-size:0.7rem; opacity:0.5; font-weight:800; text-transform:uppercase;">GPU Crashes (WDDM)</div>
+                                    <div id="ofin-gpu-crashes" style="font-size:0.75rem; font-weight:800; color:var(--text-main);">0</div>
+                                </div>
+                            </div>
+
+                            <div id="ofin-lifecycle-log"
+                                style="margin-top:10px; font-family:monospace; background:var(--panel-inner-bg); padding:6px; border-radius:4px; border:1px solid rgba(255,255,255,0.03); max-height:60px; overflow-y:auto; font-size:0.65rem;">
+                                <div style="opacity:0.2; text-align:center;">Awaiting lifecycle events...</div>
+                            </div>
+
+                            <div id="ofin-hot-box"
+                                style="margin-top:10px; display:none; background:rgba(255,55,95,0.1); padding:5px; border-radius:4px; font-size:0.8rem; border:1px solid rgba(255,55,95,0.2);">
+                                <span id="ofin-hot-id" style="color:var(--accent-red); font-weight:900;"></span>
+                                <span id="ofin-hot-cpu"
+                                    style="float:right; color:var(--text-main); font-weight:800;"></span>
+                            </div>
+
+                            <div id="ofin-rvm-details"
+                                style="display:none; margin-top:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
+                            </div>
+
+                            <div
+                                style="margin-top:15px; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px;">
+                                <div
+                                    style="font-size:0.7rem; opacity:0.5; font-weight:800; text-transform:uppercase; margin-bottom:5px;">
+                                    Process Breakdown</div>
+                                <div id="ofin-process-list" class="scroller-y-auto"
+                                    style="max-height:180px; overflow-y:auto; font-family:monospace; font-size:0.75rem;">
+                                    <table style="width:100%; border-collapse:collapse;">
+                                        <thead style="position:sticky; top:0; background:var(--bg-card); z-index:1;">
+                                            <tr
+                                                style="border-bottom:1px solid rgba(255,255,255,0.1); color:var(--accent-blue);">
+                                                <th style="text-align:left; padding:2px;">PID</th>
+                                                <th style="text-align:left; padding:2px;">NAME</th>
+                                                <th style="text-align:right; padding:2px;">CPU%</th>
+                                                <th style="text-align:right; padding:2px;">RAM</th>
+                                                <th style="text-align:right; padding:2px;">COMMIT</th>
+                                                <th style="text-align:right; padding:2px;">ACT</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ofin-process-table-body"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BROWSER MEMORY MONITOR (EXPANDED) -->
+                        <div class="metric-glass-card" id="browser-monitor-card"
+                            style="display: flex; flex-direction: column; gap: 15px; overflow: hidden;">
+                            <!-- HEADER -->
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-blue);">Browser Memory Monitor
+                                    <span class="info-bubble" onclick="showDef('browserMonitor')">?</span></span>
+                                <span id="br-monitor-time"
+                                    style="font-family: monospace; opacity: 0.6; font-size: 0.85rem; letter-spacing: 1px;">--:--:--.---</span>
+                            </div>
+
+                            <!-- BROWSER SUMMARIES (CHROME & EDGE) -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <!-- CHROME SUMMARY -->
+                                <div
+                                    style="background: var(--panel-inner-bg); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); position: relative; overflow: hidden;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                        <span
+                                            style="font-size: 0.85rem; font-weight: 900; color: var(--accent-blue); font-family: 'Outfit'; letter-spacing: 0.5px;">CHROME</span>
+                                        <div
+                                            style="text-align: right; font-size: 0.7rem; opacity: 0.7; font-weight: 800;">
+                                            <div>Processes: <span id="chrome-proc-count"
+                                                    style="color: var(--text-main);">--</span></div>
+                                            <div>Tabs: <span id="chrome-tab-count"
+                                                    style="color: var(--accent-blue);">--</span></div>
+                                            <div>Extensions: <span id="chrome-ext-count"
+                                                    style="color: #ff33cc;">--</span></div>
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                                        <div>
+                                            <div
+                                                style="font-size: 0.6rem; opacity: 0.5; text-transform: uppercase; font-weight: 800;">
+                                                Working Set</div>
+                                            <div id="chrome-ws"
+                                                style="font-size: 1.2rem; font-weight: 800; color: var(--accent-blue); font-family: 'Outfit';">
+                                                -- MB</div>
+                                        </div>
+                                        <div>
+                                            <div
+                                                style="font-size: 0.6rem; opacity: 0.5; text-transform: uppercase; font-weight: 800;">
+                                                Private Memory</div>
+                                            <div id="chrome-priv"
+                                                style="font-size: 1.1rem; font-weight: 800; color: #ff9966; font-family: 'Outfit';">
+                                                -- MB</div>
+                                        </div>
+                                        <div
+                                            style="display: flex; justify-content: space-between; font-size: 0.65rem; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.03);">
+                                            <span
+                                                style="opacity:0.6; font-weight: 700; text-transform: uppercase;">Shared/Cached</span>
+                                            <span id="chrome-shared"
+                                                style="color: var(--accent-red); font-weight: 800;">-- MB (--%)</span>
+                                        </div>
+                                        <div
+                                            style="font-size: 0.75rem; font-weight: 800; margin-top: 5px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span><span id="chrome-sys-pct"
+                                                    style="color: var(--accent-blue);">--%</span> of system
+                                                memory</span>
+                                        </div>
+                                        <div
+                                            style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 2.5px; overflow: hidden; margin-top: 2px;">
+                                            <div id="chrome-sys-bar"
+                                                style="height: 100%; background: var(--accent-blue); width: 0%; transition: width 0.5s;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- EDGE SUMMARY -->
+                                <div
+                                    style="background: var(--panel-inner-bg); padding: 15px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); position: relative; overflow: hidden;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                                        <span
+                                            style="font-size: 0.85rem; font-weight: 900; color: var(--accent-green); font-family: 'Outfit'; letter-spacing: 0.5px;">EDGE</span>
+                                        <div
+                                            style="text-align: right; font-size: 0.7rem; opacity: 0.7; font-weight: 800;">
+                                            <div>Processes: <span id="edge-proc-count"
+                                                    style="color: var(--text-main);">--</span></div>
+                                            <div>Tabs: <span id="edge-tab-count"
+                                                    style="color: var(--accent-blue);">--</span></div>
+                                            <div>Extensions: <span id="edge-ext-count" style="color: #ff33cc;">--</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                                        <div>
+                                            <div
+                                                style="font-size: 0.6rem; opacity: 0.5; text-transform: uppercase; font-weight: 800;">
+                                                Working Set</div>
+                                            <div id="edge-ws"
+                                                style="font-size: 1.2rem; font-weight: 800; color: var(--accent-green); font-family: 'Outfit';">
+                                                -- MB</div>
+                                        </div>
+                                        <div>
+                                            <div
+                                                style="font-size: 0.6rem; opacity: 0.5; text-transform: uppercase; font-weight: 800;">
+                                                Private Memory</div>
+                                            <div id="edge-priv"
+                                                style="font-size: 1.1rem; font-weight: 800; color: #ff9966; font-family: 'Outfit';">
+                                                -- MB</div>
+                                        </div>
+                                        <div
+                                            style="display: flex; justify-content: space-between; font-size: 0.65rem; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.03);">
+                                            <span
+                                                style="opacity:0.6; font-weight: 700; text-transform: uppercase;">Shared/Cached</span>
+                                            <span id="edge-shared"
+                                                style="color: var(--accent-red); font-weight: 800;">-- MB (--%)</span>
+                                        </div>
+                                        <div
+                                            style="font-size: 0.75rem; font-weight: 800; margin-top: 5px; display: flex; justify-content: space-between; align-items: center;">
+                                            <span><span id="edge-sys-pct" style="color: var(--accent-green);">--%</span>
+                                                of system memory</span>
+                                        </div>
+                                        <div
+                                            style="height: 5px; background: rgba(255,255,255,0.05); border-radius: 2.5px; overflow: hidden; margin-top: 2px;">
+                                            <div id="edge-sys-bar"
+                                                style="height: 100%; background: var(--accent-green); width: 0%; transition: width 0.5s;">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PROCESS TABLES -->
+                            <div
+                                style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; flex: 1; min-height: 0;">
+                                <!-- CHROME PROCESSES -->
+                                <div style="display: flex; flex-direction: column;">
+                                    <div
+                                        style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; opacity: 0.8;">
+                                        <span
+                                            style="font-size: 0.75rem; font-weight: 900; text-transform: uppercase; color: var(--text-main); font-family: 'Outfit';">Chrome
+                                            Processes</span>
+                                        <span style="font-size: 0.65rem; opacity: 0.5; font-weight: 700;">(sorted by
+                                            memory)</span>
+                                    </div>
+                                    <div class="scroller-y-auto"
+                                        style="flex: 1; overflow-y: auto; background: var(--panel-inner-bg); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <table
+                                            style="width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: left; font-family: monospace;">
+                                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                                <tr
+                                                    style="color: var(--text-inv); font-weight: 900; background: var(--accent-blue); border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid var(--border-light);">
+                                                        PID</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Type</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Working Set</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Private</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Threads</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        CPU %</th>
+                                                    <th style="padding: 6px 8px; text-align:center;">Act</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="chrome-proc-table-body">
+                                                <!-- Dynamic Rows -->
+                                                <tr style="opacity: 0.3;">
+                                                    <td colspan="6" style="padding: 20px; text-align: center;">
+                                                        Initializing telemetry...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                <!-- EDGE PROCESSES -->
+                                <div style="display: flex; flex-direction: column;">
+                                    <div
+                                        style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; opacity: 0.8;">
+                                        <span
+                                            style="font-size: 0.75rem; font-weight: 900; text-transform: uppercase; color: var(--text-main); font-family: 'Outfit';">Edge
+                                            Processes</span>
+                                        <span style="font-size: 0.65rem; opacity: 0.5; font-weight: 700;">(sorted by
+                                            memory)</span>
+                                    </div>
+                                    <div class="scroller-y-auto"
+                                        style="flex: 1; overflow-y: auto; background: var(--panel-inner-bg); border-radius: 6px; border: 1px solid rgba(255,255,255,0.05);">
+                                        <table
+                                            style="width: 100%; border-collapse: collapse; font-size: 0.7rem; text-align: left; font-family: monospace;">
+                                            <thead style="position: sticky; top: 0; z-index: 10;">
+                                                <tr
+                                                    style="color: var(--text-inv); font-weight: 900; background: var(--accent-green); border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid var(--border-light);">
+                                                        PID</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Type</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Working Set</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Private</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        Threads</th>
+                                                    <th
+                                                        style="padding: 6px 8px; border-right: 1px solid rgba(0,0,0,0.1);">
+                                                        CPU %</th>
+                                                    <th style="padding: 6px 8px; text-align:center;">Act</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="edge-proc-table-body">
+                                                <!-- Dynamic Rows -->
+                                                <tr style="opacity: 0.3;">
+                                                    <td colspan="6" style="padding: 20px; text-align: center;">
+                                                        Initializing telemetry...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- FOOTER BAR (Optional matching the blue bar in screenshot) -->
+                            <div
+                                style="background: var(--panel-inner-bg); border: 1px solid rgba(255,255,255,0.03); color: var(--text-dim); font-size: 0.65rem; font-weight: 900; padding: 6px 10px; border-radius: 6px; display: flex; justify-content: space-between; margin-top: 10px;">
+                                <div>
+                                    Chrome: <span id="footer-chrome-stats" style="color:var(--text-main);">-- tabs, --
+                                        MB</span> |
+                                    Edge: <span id="footer-edge-stats" style="color:var(--text-main);">-- tabs, --
+                                        MB</span> |
+                                    Update: <span id="footer-update-time" style="color:var(--accent-blue);">--ms</span>
+                                </div>
+                                <div style="color:var(--text-main);">Refresh: 1000ms</div>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Forensics & Trace Views -->
-            <div id="view-forensics" class="view-page-container" style="display:none; padding:40px;">
-                <div class="card-label-small"
-                    style="margin-bottom:25px; font-size:1rem; border-bottom:1px solid var(--border-light); padding-bottom:15px;">
-                    Advanced Forensic Analytics & Scheduling Stability
-                </div>
-                <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
-                    <div class="metric-glass-card">
-                        <div class="card-label-small" style="margin-bottom:20px; color:var(--accent-red);">
-                            Zombie Process Detection (Dead/Idle)</div>
-                        <div id="zombie-list-target" style="font-size:0.75rem;">
-                            <p style="text-align:center; color:#444; padding-top:40px;">No zombie
-                                processes
-                                detected.</p>
-                        </div>
-                    </div>
-                    <div class="metric-glass-card">
-                        <div class="card-label-small" style="margin-bottom:20px;">Live Forensic Risk
-                            Factors
-                            <span class="info-bubble" onclick="showDef('risk')">?</span>
-                        </div>
-                        <div id="risk-factors-detailed" style="font-size:0.8rem; color:var(--text-dim); line-height:2;">
-                            Aggregating real-time hazard markers...
-                        </div>
-                    </div>
-                </div>
-                <div class="metric-glass-card" style="margin-top:30px;">
-                    <div class="card-label-small" style="margin-bottom:20px; color:var(--accent-blue);">
-                        Thread-Level Saturation Trace <span class="info-bubble" onclick="showDef('trace')">?</span>
-                    </div>
-                    <div id="forensic-thread-grid"
-                        style="display:grid; grid-template-columns: repeat(2, 1fr); gap:15px;"></div>
-                </div>
-            </div>
-        </div>
 
-        <div class="app-footer-strip">
-            <div class="footer-segment">
-                <span class="footer-tag">STATUS:</span> <span class="footer-val status-neon-green">NOMINAL</span>
-                <span style="margin:0 15px; opacity:0.1">|</span>
-                <span class="footer-tag">ENGINE:</span> <span class="footer-val">CIM V5.20</span>
-                <span style="margin:0 15px; opacity:0.1">|</span>
-                <span class="footer-tag">LICENSE:</span> <span class="footer-val"
-                    style="color:var(--accent-blue)">PROFESSIONAL VVD-ENT</span>
-                <span style="margin:0 15px; opacity:0.1">|</span>
-                <button onclick="generateReport()" id="report-btn"
-                    style="background:rgba(0,210,255,0.1); border:1px solid var(--accent-blue); color:var(--accent-blue); padding:4px 12px; font-weight:700; font-size:0.6rem; border-radius:4px; cursor:pointer; vertical-align:middle;">
-                    GENERATE FORENSIC REPORT
-                </button>
-                <span style="margin:0 15px; opacity:0.1">|</span>
-                <input type="file" id="report-input" style="display:none;" accept=".json"
-                    onchange="handleReportFile(this)">
-                <button onclick="document.getElementById('report-input').click()"
-                    style="background:var(--border-light); border:1px solid var(--border-edge); color:var(--text-main); padding:4px 12px; font-weight:700; font-size:0.6rem; border-radius:4px; cursor:pointer; vertical-align:middle;">
-                    OPEN REPORT
-                </button>
+
+
+                    <!-- ROW 3a: SUPPORTING TELEMETRY (3-Card Layout) -->
+                    <div id="telemetry-addon-row-a"
+                        style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:20px; margin-bottom:20px;">
+
+                        <!-- NETWORK INFRASTRUCTURE (Simplified & Redesigned) -->
+                        <div class="metric-glass-card" id="citrix-hdx-card">
+                            <div class="card-upper-row" style="margin-bottom:10px;">
+                                <span class="card-label-small" style="color:var(--accent-blue);">Network Infrastructure
+                                    <span class="info-bubble" onclick="showDef('netStack')">?</span></span>
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <span id="net-config-status" class="status-neon-green"
+                                        style="font-size:0.75rem;">--</span>
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns: 1.25fr 1fr; gap:20px;">
+                                <!-- Column 1: Core Performance -->
+                                <div
+                                    style="border-right:1px solid rgba(255,255,255,0.05); padding-right:15px; display:flex; flex-direction:column; gap:10px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <div id="ica-latency-val"
+                                                style="font-family:'Outfit'; font-size:1.4rem; font-weight:800; color:var(--text-main); line-height:1;">
+                                                --</div>
+                                            <div style="font-size:0.7rem; opacity:0.5; margin-top:2px;">RTT LATENCY ms
+                                            </div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div id="net-packet-loss"
+                                                style="font-size:1.1rem; font-weight:900; color:var(--accent-red);">0.0%
+                                            </div>
+                                            <div style="font-size:0.7rem; opacity:0.5;">LOSS/ERR</div>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; background:var(--panel-inner-bg); border-radius:6px; padding:10px; border:1px solid rgba(255,255,255,0.05);">
+                                        <div>
+                                            <div id="ica-bw-in"
+                                                style="font-size:1rem; font-weight:800; color:var(--accent-blue);">--
+                                            </div>
+                                            <div style="font-size:0.65rem; opacity:0.5;">INBOUND KB/s</div>
+                                        </div>
+                                        <div style="text-align:right;">
+                                            <div id="ica-bw-out"
+                                                style="font-size:1rem; font-weight:800; color:var(--accent-green);">--
+                                            </div>
+                                            <div style="font-size:0.65rem; opacity:0.5;">OUTBOUND KB/s</div>
+                                        </div>
+                                    </div>
+
+                                    <div id="ica-adapter-name"
+                                        style="font-size:0.65rem; opacity:0.4; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
+                                        --</div>
+                                </div>
+
+                                <!-- Column 2: Hardware & Logic -->
+                                <div>
+                                    <div
+                                        style="font-size:0.75rem; color:var(--accent-blue); font-weight:900; margin-bottom:8px;">
+                                        HARDWARE & DRIVER</div>
+                                    <div class="net-row"><span class="n-lab">Driver</span><span id="net-driver-full"
+                                            class="n-val">--</span></div>
+                                    <div class="net-row"><span class="n-lab">MAC</span><span id="net-mac"
+                                            class="n-val">--</span></div>
+                                    <div class="net-row"
+                                        style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
+                                        <span class="n-lab">Link Speed</span>
+                                        <span id="net-link-speed" class="n-val"
+                                            style="color:var(--accent-blue); font-weight:800;">--</span>
+                                    </div>
+                                    <div class="net-row">
+                                        <span class="n-lab">Interrupts</span>
+                                        <span id="net-ints" class="n-val"
+                                            style="color:var(--accent-blue); font-weight:800;">--</span>
+                                    </div>
+                                    <div id="vmware-discovery-badge"
+                                        style="display:none; margin-top:10px; background:var(--accent-green); color:black; font-size:0.6rem; font-weight:900; padding:2px 6px; border-radius:3px; text-align:center;">
+                                        VMWARE DETECTED</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- WEBHOOKS -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-blue);">Webhooks <span
+                                        class="info-bubble" onclick="showDef('webhook')">?</span></span>
+                                <span class="status-neon-green" style="font-size:0.8rem;">LIVE</span>
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px;">
+                                <div>
+                                    <div id="wh-throughput"
+                                        style="font-size:1.4rem; font-weight:800; color:var(--text-main); line-height:1;">
+                                        --</div>
+                                    <div style="font-size:0.75rem; opacity:0.5; margin-top:4px;">MSG/SEC</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div id="wh-latency"
+                                        style="font-size:1.4rem; font-weight:800; color:var(--accent-blue); line-height:1;">
+                                        --</div>
+                                    <div style="font-size:0.75rem; opacity:0.5; margin-top:4px;">LATENCY MS</div>
+                                </div>
+                            </div>
+                            <div
+                                style="margin-top:10px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; font-size:0.8rem; color:var(--text-dim); font-weight:800;">
+                                <span>ERR: <span id="wh-error-rate" style="color:var(--text-main);">--%</span></span>
+                                <span>QUEUE: <span id="wh-queue" style="color:var(--text-main);">--</span></span>
+                            </div>
+                        </div>
+
+                        <!-- DFS SMB -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-blue);">DFS / SMB Shares <span
+                                        class="info-bubble" onclick="showDef('dfs')">?</span></span>
+                                <span id="dfs-count" class="status-dim" style="font-size:0.8rem;">0 ACTIVE</span>
+                            </div>
+                            <div id="dfs-list-target" class="scroller-y-auto"
+                                style="margin-top:10px; height:120px; overflow-y:auto; font-size:0.8rem; display:flex; flex-direction:column; gap:5px;">
+                                <div style="opacity:0.3; text-align:center; padding-top:20px;">Scanning mount points...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NEW ROW 4b: EXPANDED PERIPHERALS & M365 (2-Card Layout) -->
+                    <div id="telemetry-addon-row-b"
+                        style="display:grid; grid-template-columns: 1.5fr 1fr; gap:20px; margin-bottom:25px;">
+                        <!-- PERIPHERALS & TOPOGRAPHY -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-blue);">Peripherals &
+                                    Topography <span class="info-bubble" onclick="showDef('topography')">?</span></span>
+                                <span id="periph-status" class="status-neon-green" style="font-size:0.75rem;">LIVE
+                                    BUS</span>
+                            </div>
+                            <div id="topo-displays-target"
+                                style="border-bottom:1px solid rgba(255,255,255,0.05); margin-bottom:5px; padding-bottom:5px; font-size:0.8rem; font-weight:800; color:var(--text-main);">
+                                --</div>
+                            <div id="topo-usb-target" class="scroller-y-auto"
+                                style="height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:3px;">
+                                <div style="opacity:0.2; text-align:center; padding-top:30px;">Scanning USB tree...
+                                </div>
+                            </div>
+                        </div>
+                        <!-- M365 DESKTOP INFRASTRUCTURE -->
+                        <div class="metric-glass-card" style="overflow:hidden;">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-blue);">M365 Desktop <span
+                                        class="info-bubble" onclick="showDef('m365')">?</span></span>
+                                <span class="status-neon-green" style="font-size:0.8rem;">SYNCED</span>
+                            </div>
+                            <div
+                                style="display:flex; justify-content:space-between; font-size:0.4rem; opacity:0.4; margin-top:8px; font-weight:800; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:3px;">
+                                <span>APPS / VERSION / PID</span>
+                                <span>METRICS</span>
+                            </div>
+                            <div id="m365-apps-target" class="scroller-y-auto"
+                                style="margin-top:10px; height:320px; overflow-y:auto; font-size:0.8rem; display:flex; flex-direction:column; gap:8px;">
+                                <div style="opacity:0.3; text-align:center; padding-top:20px;">Auditing Office COM
+                                    add-ins...</div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
+
+
+
+                    <!-- ROW 6: LOGS, THREADS & PROFILES -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1.25fr; gap:25px; margin-bottom:40px;">
+
+                        <!-- EVENT LOG SURVEILLANCE -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:#ffcc00;">Event Log Surveillance <span
+                                        class="info-bubble" onclick="showDef('eventLog')">?</span></span>
+                                <span class="status-dim" style="font-size:0.8rem;">REAL-TIME AUDIT</span>
+                            </div>
+                            <div id="event-log-target" class="scroller-y-auto"
+                                style="margin-top:12px; height:300px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:6px;">
+                                <div style="opacity:0.3; font-size:0.85rem; text-align:center; padding-top:50px;">
+                                    Awaiting critical system markers...</div>
+                            </div>
+                        </div>
+
+                        <!-- THREAD & ZOMBIE SURVEILLANCE -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-red);">Thread & Zombie Monitor
+                                    <span class="info-bubble" onclick="showDef('zombie')">?</span></span>
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+                                <div id="zombie-monitor-sidebar"
+                                    style="min-height:50px; background:rgba(255,55,95,0.05); border:1px solid rgba(255,55,95,0.1); border-radius:10px; padding:10px; font-size:0.85rem;">
+                                    <div style="opacity:0.4; text-align:center;">No zombie kernel handles detected.
+                                    </div>
+                                </div>
+                                <div id="thread-grid-target" class="scroller-y-auto"
+                                    style="height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+                                    <div style="opacity:0.3; font-size:0.8rem; text-align:center; padding-top:40px;">
+                                        Tracking thread dispersion patterns...</div>
+                                </div>
+                                <div id="zombie-list-target" style="display:none;"></div>
+                            </div>
+                        </div>
+
+                        <!-- PROFILE BREAKDOWN & DRIFT -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-blue);">User Profile & Drift
+                                    Analysis <span class="info-bubble" onclick="showDef('userProfile')">?</span></span>
+                                <span id="profile-state-badge" class="status-dim"
+                                    style="font-size:0.8rem;">SCANNED</span>
+                            </div>
+                            <div
+                                style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:15px; border-bottom:1px solid var(--border-light); padding-bottom:15px;">
+                                <div>
+                                    <div id="prof-size-val"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:2rem; color:var(--text-main); line-height:1;">
+                                        -- GB</div>
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.5; margin-top:4px; text-transform:uppercase; font-weight:800;">
+                                        Storage Footprint</div>
+                                </div>
+                                <div style="text-align:right;">
+                                    <div id="prof-files-val"
+                                        style="font-family:'Outfit'; font-weight:800; font-size:2rem; color:var(--accent-blue); line-height:1;">
+                                        --</div>
+                                    <div
+                                        style="font-size:0.8rem; opacity:0.5; margin-top:4px; text-transform:uppercase; font-weight:800;">
+                                        Total Handles</div>
+                                </div>
+                            </div>
+                            <div id="profile-folders-target" class="scroller-y-auto"
+                                style="margin-top:15px; height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:5px;">
+                                <div style="opacity:0.2; text-align:center; padding-top:40px;">Auditing localized
+                                    profile drift...</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ROW 6: OS TUNING & DEFAULTS -->
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:25px; margin-bottom:40px;">
+
+                        <!-- OS PERFORMANCE TUNING -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:var(--accent-green);">OS Performance
+                                    Tuning <span class="info-bubble" onclick="showDef('sysview')">?</span></span>
+                                <span id="ui-tuning-status" class="status-dim"
+                                    style="font-size:0.8rem;">AUDITING...</span>
+                            </div>
+                            <div id="ui-tuning-target"
+                                style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+                                <div
+                                    style="display:flex; justify-content:space-between; font-size:0.85rem; opacity:0.8;">
+                                    <span>Transparency Effects:</span>
+                                    <span id="os-transparency-val"
+                                        style="font-weight:900; color:var(--accent-blue);">--</span>
+                                </div>
+                                <div
+                                    style="display:flex; justify-content:space-between; font-size:0.85rem; opacity:0.8;">
+                                    <span>Animation Effects:</span>
+                                    <span id="os-animations-val"
+                                        style="font-weight:900; color:var(--accent-blue);">--</span>
+                                </div>
+                                <div
+                                    style="margin-top:10px; padding:10px; background:rgba(48, 209, 88, 0.05); border:1px solid rgba(48, 209, 88, 0.1); border-radius:8px;">
+                                    <div
+                                        style="font-size:0.8rem; line-height:1.4; color:var(--text-dim); margin-bottom:10px;">
+                                        Disabling visual effects can reclaim kernel cycles for high-frequency trading
+                                        applications.
+                                    </div>
+                                    <button onclick="tuneOSPerformance()" class="footer-btn"
+                                        style="width:100%; height:32px; border-color:var(--accent-green); color:var(--accent-green);">OPTIMIZE
+                                        VISUALS</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BLOOMBERG ECOSYSTEM MONITOR -->
+                        <div class="metric-glass-card">
+                            <div class="card-upper-row">
+                                <span class="card-label-small" style="color:#f7931e;">Bloomberg Ecosystem</span>
+                                <span id="bbg-status-badge" class="status-dim" style="font-size:0.8rem;">OFFLINE</span>
+                            </div>
+                            <div id="bbg-monitor-target"
+                                style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+                                <div
+                                    style="display:flex; justify-content:space-between; font-size:0.85rem; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px;">
+                                    <span>Main Terminal:</span>
+                                    <span id="bbg-terminal-pid"
+                                        style="font-weight:900; font-family:monospace;">--</span>
+                                </div>
+                                <div
+                                    style="display:flex; justify-content:space-between; font-size:0.85rem; border-bottom:1px solid rgba(255,255,255,0.03); padding-bottom:4px;">
+                                    <span>Data Component:</span>
+                                    <span id="bbg-component-pid"
+                                        style="font-weight:900; font-family:monospace;">--</span>
+                                </div>
+                                <div
+                                    style="height:40px; margin-top:5px; background:rgba(247, 147, 30, 0.05); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:var(--text-dim);">
+                                    Inter-process link latency: <span id="bbg-link-lat"
+                                        style="color:white; margin-left:5px;">--
+                                        ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="app-footer-strip">
+                    <div class="footer-segment">
+                        <span class="footer-tag">SYSTEM STATUS:</span> <span
+                            class="footer-val status-neon-green">NOMINAL</span>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <span class="footer-tag">FORENSIC ENGINE:</span> <span class="footer-val">CIM V4.0.0</span>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <button onclick="generateReport()" id="report-btn" class="footer-btn">GENERATE FORENSIC
+                            EXPORT</button>
+                        <span style="margin:0 15px; opacity:0.1">|</span>
+                        <input type="file" id="report-input" style="display:none;" accept=".json"
+                            onchange="handleReportFile(this)">
+                        <button onclick="openRepository()" class="footer-btn">BROWSE
+                            REPOSITORY</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Definition Modal -->
+    <!-- Modals -->
     <div id="info-modal" class="modal-surface" style="display:none;">
         <div class="modal-glass-content">
             <h2 id="modal-title" style="margin-bottom:20px; font-family:'Outfit';">DEFINITION</h2>
             <div id="modal-body" style="font-size:0.9rem; line-height:1.6; color:var(--text-dim); margin-bottom:30px;">
-                Providing technical context for advanced telemetry.
-            </div>
+                Technical context provided by the forensic engine.</div>
             <button class="modal-close-btn"
                 onclick="document.getElementById('info-modal').style.display='none'">DISMISS</button>
         </div>
     </div>
 
-    <!-- Stylized Event Popup -->
     <div id="event-popup" class="event-popup-modal">
         <h3 id="ev-pop-title" style="color:var(--accent-blue); margin-top:0;">EVENT DETAIL</h3>
         <div id="ev-pop-body"
-            style="font-family:'Inter'; font-size:0.9rem; line-height:1.6; color:#e0e0e0; margin:20px 0;">
-        </div>
+            style="font-family:'Inter'; font-size:0.9rem; line-height:1.6; color:var(--text-dim); margin:20px 0;"></div>
         <div style="text-align:right;">
             <button class="modal-close-btn" onclick="document.getElementById('event-popup').style.display='none'"
-                style="background:rgba(var(--text-rgb),0.1); border:none; padding:8px 20px; color:var(--text-main); cursor:pointer; border-radius:6px;">CLOSE</button>
+                style="background:var(--panel-inner-bg); border:none; padding:8px 20px; color:var(--text-main); cursor:pointer; border-radius:6px;">CLOSE</button>
         </div>
     </div>
 
-    <!-- Custom Purge Modal -->
-    <div id="purge-modal" class="modal-surface" style="display:none;">
-        <div class="modal-glass-content" style="border-color:var(--accent-red);">
-            <h2 style="margin-bottom:10px; font-family:'Outfit'; color:var(--accent-red);">PURGE COMMAND
-            </h2>
-            <div style="margin-bottom:20px; font-size:0.85rem; color:var(--text-dim);">Are you sure you
-                want
-                to
-                terminate this process? This will immediately stop execution.</div>
+    <div id="tune-os-modal" class="modal-surface" style="display:none;">
+        <div class="modal-glass-content" style="max-width:450px;">
+            <div class="card-upper-row">
+                <span class="card-label-small" style="color:var(--accent-blue);">OS PERFORMANCE TUNING</span>
+                <span id="tune-mode-tag" class="status-neon-green" style="font-size:0.8rem;">SAFETY CHALLENGE</span>
+            </div>
+            <h2 id="tune-modal-title" style="margin:20px 0 10px 0; font-family:'Outfit'; font-size:1.4rem;">OPTIMIZE
+                VISUAL EFFECTS?</h2>
+            <div id="tune-modal-body"
+                style="font-size:0.85rem; line-height:1.6; color:var(--text-dim); margin-bottom:25px;">
+                This action will modify high-level OS parameters to reclaim kernel cycles for deterministic trading:
+                <ul style="margin-top:10px; margin-left:20px; color:var(--text-main);">
+                    <li>Disable Windows Transparency (Mica/Acrylic)</li>
+                    <li>Disable Window Minimize/Maximize Animations</li>
+                </ul>
+                <div style="margin-top:15px; font-size:0.75rem; color:var(--accent-red); font-weight:700;">
+                    Note: This improves UI responsiveness under heavy order flow.
+                </div>
+            </div>
+            <div style="display:flex; gap:15px; justify-content:flex-end;">
+                <button class="footer-btn" onclick="document.getElementById('tune-os-modal').style.display='none'"
+                    style="border-color:rgba(255,255,255,0.1);">CANCEL</button>
+                <button id="tune-confirm-btn" class="footer-btn"
+                    style="background:var(--accent-blue) !important; color:black !important; border-color:var(--accent-blue) !important;">CONFIRM
+                    CHANGES</button>
+            </div>
+        </div>
+    </div>
 
+    <!-- User Profile Files Modal -->
+    <div id="profile-files-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg-overlay); backdrop-filter:blur(8px); z-index:9999; justify-content:center; align-items:center;">
+        <div
+            style="background:var(--bg-card); border:1px solid var(--border-light); border-radius:12px; width:600px; max-width:90%; box-shadow:0 10px 40px rgba(0,0,0,0.5); display:flex; flex-direction:column; overflow:hidden;">
             <div
-                style="background:var(--bg-card); padding:15px; border-radius:12px; margin-bottom:25px; text-align:left; border:1px solid rgba(255,55,95,0.1);">
+                style="padding:15px 20px; border-bottom:1px solid var(--border-light); display:flex; justify-content:space-between; align-items:center; background:var(--bg-card);">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:10px; height:10px; border-radius:50%; background:var(--accent-blue);"></div>
+                    <h3 id="profile-files-title"
+                        style="margin:0; font-size:1rem; font-weight:800; color:var(--text-main); letter-spacing:1px; text-transform:uppercase;">
+                        FOLDER SCOPE</h3>
+                </div>
+                <button onclick="document.getElementById('profile-files-modal').style.display='none'"
+                    style="background:transparent; border:none; color:var(--text-dim); font-size:1.2rem; cursor:pointer;"
+                    onmouseover="this.style.color='var(--accent-red)'"
+                    onmouseout="this.style.color='var(--text-dim)'">✕</button>
+            </div>
+
+            <div style="padding:20px;">
                 <div
-                    style="font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">
-                    Target Identification</div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span id="purge-target-name"
-                        style="font-weight:800; font-size:1.1rem; color:var(--text-main);">--</span>
-                    <span id="purge-target-pid"
-                        style="font-family:monospace; color:var(--accent-red); font-weight:700;">PID
-                        --</span>
+                    style="font-size:0.75rem; color:var(--text-dim); margin-bottom:10px; text-transform:uppercase; font-weight:800;">
+                    Top 10 Largest Files</div>
+                <div
+                    style="background:var(--panel-inner-bg); border-radius:8px; border:1px solid var(--border-light); overflow-y:auto; max-height:400px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:0.7rem;">
+                        <thead style="background:var(--panel-inner-bg);">
+                            <tr>
+                                <th
+                                    style="text-align:left; padding:8px 12px; color:var(--accent-blue); font-weight:800;">
+                                    FILE NAME</th>
+                                <th
+                                    style="text-align:right; padding:8px 12px; color:var(--accent-blue); font-weight:800; width:100px;">
+                                    SIZE (MB)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="profile-files-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- On-Demand Process Diagnostic Modal -->
+    <div id="diagnose-modal" class="modal-surface" style="display:none; z-index:9999; backdrop-filter:blur(8px);">
+        <div class="modal-glass-content" style="max-width:600px; width:90%; padding:30px;">
+            <div class="card-upper-row"
+                style="margin-bottom:20px; border-bottom:1px solid var(--border-light); padding-bottom:10px;">
+                <span class="card-label-small" style="color:var(--accent-blue); font-size:1rem;">Diagnostic Canvas <span
+                        style="color:var(--text-dim); font-size:0.7rem;">| ON-DEMAND</span></span>
+                <span id="diag-status-tag" class="status-neon-green" style="font-size:0.8rem;">READY</span>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px;">
+                <div>
+                    <h2 id="diag-proc-name"
+                        style="margin:0; font-family:'Outfit'; font-size:2rem; color:var(--text-main);">ProcessName</h2>
+                    <div
+                        style="font-family:monospace; color:var(--text-dim); font-weight:800; font-size:0.9rem; margin-top:5px;">
+                        PID: <span id="diag-proc-pid" style="color:var(--accent-blue);">--</span></div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.7rem; font-weight:800; color:var(--text-dim); text-transform:uppercase;">
+                        Time Analyzed</div>
+                    <div id="diag-time" style="font-size:0.9rem; font-family:monospace; color:var(--text-main);">
+                        --:--:--</div>
                 </div>
             </div>
 
-            <div style="display:flex; gap:15px;">
-                <button onclick="closePurgeModal()"
-                    style="flex:1; background:rgba(var(--text-rgb),0.1); color:var(--text-main); border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer;">CANCEL</button>
-                <button onclick="executePurge()"
-                    style="flex:1; background:var(--accent-red); color:var(--text-main); border:none; padding:12px; border-radius:12px; font-weight:800; cursor:pointer; box-shadow:0 10px 20px rgba(255,55,95,0.2);">YES,
-                    PURGE</button>
+            <!-- Real-Time Metrics -->
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;">
+                <div
+                    style="background:var(--panel-inner-bg); padding:15px; border-radius:8px; border:1px solid var(--border-light); text-align:center;">
+                    <div style="font-size:0.6rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Memory</div>
+                    <div id="diag-mem"
+                        style="font-size:1.4rem; font-weight:800; color:var(--accent-blue); font-family:'Outfit';">--
+                    </div>
+                    <div style="font-size:0.6rem; color:var(--text-dim);">MB</div>
+                </div>
+                <div
+                    style="background:var(--panel-inner-bg); padding:15px; border-radius:8px; border:1px solid var(--border-light); text-align:center;">
+                    <div style="font-size:0.6rem; opacity:0.5; font-weight:800; text-transform:uppercase;">CPU</div>
+                    <div id="diag-cpu"
+                        style="font-size:1.4rem; font-weight:800; color:var(--text-main); font-family:'Outfit';">--
+                    </div>
+                    <div style="font-size:0.6rem; color:var(--text-dim);">%</div>
+                </div>
+                <div
+                    style="background:var(--panel-inner-bg); padding:15px; border-radius:8px; border:1px solid var(--border-light); text-align:center;">
+                    <div style="font-size:0.6rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Threads</div>
+                    <div id="diag-threads"
+                        style="font-size:1.4rem; font-weight:800; color:var(--text-main); font-family:'Outfit';">--
+                    </div>
+                    <div style="font-size:0.6rem; color:var(--text-dim);">Active</div>
+                </div>
+                <div
+                    style="background:var(--panel-inner-bg); padding:15px; border-radius:8px; border:1px solid var(--border-light); text-align:center;">
+                    <div style="font-size:0.6rem; opacity:0.5; font-weight:800; text-transform:uppercase;">Uptime</div>
+                    <div id="diag-uptime"
+                        style="font-size:1.4rem; font-weight:800; color:var(--text-main); font-family:'Outfit';">--
+                    </div>
+                    <div style="font-size:0.6rem; color:var(--text-dim);">Mins</div>
+                </div>
+            </div>
+
+            <!-- Security & Alerting -->
+            <div id="diag-alert-pane"
+                style="background:rgba(255,55,95,0.1); border-left:4px solid var(--accent-red); padding:15px; border-radius:4px; margin-bottom:20px; display:none;">
+                <div style="color:var(--accent-red); font-weight:900; font-size:0.9rem; margin-bottom:5px;">CRITICAL
+                    SYSTEM STRAIN DETECTED</div>
+                <ul id="diag-alert-list"
+                    style="margin:0; padding-left:15px; color:var(--text-main); font-size:0.8rem; line-height:1.5;">
+                </ul>
+            </div>
+
+            <div style="border-top:1px solid var(--border-light); padding-top:20px;">
+                <div style="font-size:0.75rem; font-weight:900; color:var(--text-main); margin-bottom:10px;">Deep Thread
+                    Wait-State Analysis</div>
+                <div class="scroller-y-auto"
+                    style="max-height:250px; overflow-y:auto; background:var(--panel-inner-bg); border:1px solid var(--border-light); border-radius:6px;">
+                    <table
+                        style="width:100%; border-collapse:collapse; font-size:0.7rem; font-family:monospace; text-align:left;">
+                        <thead style="position:sticky; top:0; background:var(--bg-card); z-index:1;">
+                            <tr style="border-bottom:1px solid var(--border-light); color:var(--accent-blue);">
+                                <th style="padding:6px 10px;">ID</th>
+                                <th style="padding:6px 10px;">STATE</th>
+                                <th style="padding:6px 10px;">REASON</th>
+                                <th style="padding:6px 10px; text-align:right;">CPU (s)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="diag-thread-list">
+                            <tr>
+                                <td colspan="4" style="padding:15px; text-align:center; opacity:0.4;">Polling...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:25px;">
+                <div style="font-size:0.65rem; color:var(--text-dim); opacity:0.7;">Refreshes every 3s to minimize DPC
+                    jitter</div>
+                <button class="footer-btn" onclick="closeDiagnosticCanvas()"
+                    style="border-color:rgba(255,255,255,0.1);">CLOSE CANVAS</button>
             </div>
         </div>
     </div>
 
+    <script src="ai-heuristics.js"></script>
     <script src="data-storage.js"></script>
-    <script src="app.js?v=debug20"></script>
+
+    <!-- Purge Confirmation Modal -->
+    <div id="purge-modal" class="modal-surface" style="display:none; z-index:10000; backdrop-filter:blur(8px);">
+        <div class="modal-glass-content" style="max-width:400px; padding:30px; text-align:center;">
+            <div style="font-size:3rem; margin-bottom:15px; color:var(--accent-red);">⚠️</div>
+            <h2 style="margin:0 0 10px 0; font-family:'Outfit'; color:var(--text-main);">TERMINATE PROCESS?</h2>
+            <p style="font-size:0.9rem; color:var(--text-dim); line-height:1.6; margin-bottom:20px;">
+                You are about to force-terminate <b id="purge-target-name" style="color:var(--text-main);">Process</b> (<span id="purge-target-pid" style="color:var(--accent-blue);">PID</span>).
+                This action is irreversible and may cause unsaved data loss in the target application.
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button class="footer-btn" onclick="closePurgeModal()" style="border-color:var(--border-light);">CANCEL</button>
+                <button class="footer-btn" onclick="executePurge()" style="background:var(--accent-red) !important; color:white !important; border-color:var(--accent-red) !important;">TERMINATE NOW</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js?v=debug23"></script>
 </body>
 
 </html>

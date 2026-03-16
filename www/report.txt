@@ -1,0 +1,311 @@
+function safeSetText(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val;
+}
+
+console.log("TraderSynth Report Viewer: Initialization starting...");
+
+window.onload = async function () {
+    console.log("TraderSynth Report Viewer: Window loaded, checking storage...");
+    try {
+        var dataStr = await window.reportStorage.loadReport();
+        if (!dataStr) {
+            console.error("TraderSynth Report Viewer: No data found in storage");
+            document.body.innerHTML = "<div style='padding:100px; text-align:center; color:#fff;'><h1>NO DATA FOUND</h1><p>Please open a report from the main dashboard.</p></div>";
+            return;
+        }
+
+        console.log("TraderSynth Report Viewer: Parsing " + dataStr.length + " bytes of JSON data...");
+        var report = JSON.parse(dataStr);
+        renderVisualReport(report);
+    } catch (e) {
+        console.error("TraderSynth Report Viewer: Error loading/parsing report", e);
+        document.body.innerHTML = "<div style='padding:100px; text-align:center; color:#fff;'><h1>CORRUPT OR MISSING REPORT DATA</h1><p>" + e.message + "</p></div>";
+    }
+};
+
+function renderVisualReport(report) {
+    console.log("TraderSynth Report Viewer: Rendering visual report...");
+    if (!report || !report.Metrics || report.Metrics.length === 0) {
+        console.warn("TraderSynth Report Viewer: Report contains no metrics.");
+        return;
+    }
+
+    var ms = report.Metrics;
+    var count = ms.length;
+    var sumHealth = 0, sumCpu = 0, sumMem = 0;
+    var cpuData = [], memData = [];
+    var topProcsMap = {};
+    var vmIssues = [];
+
+    for (var i = 0; i < count; i++) {
+        var m = ms[i];
+        sumHealth += (m.score || 0);
+
+        if (m.cpu) {
+            var cVal = m.cpu.usage || 0;
+            sumCpu += cVal;
+            cpuData.push(cVal);
+        }
+
+        if (m.mem) {
+            var mVal = m.mem.percent || 0;
+            sumMem += mVal;
+            memData.push(mVal);
+        }
+
+        if (m.sysview) {
+            if (m.sysview.power && !m.sysview.power.isOptimal && vmIssues.indexOf("Suboptimal Power Plan") === -1) vmIssues.push("Suboptimal Power Plan: " + m.sysview.power.plan);
+            if (m.sysview.diskC && m.sysview.diskC.percUsed > 90 && vmIssues.indexOf("Critical C: Drive Capacity") === -1) vmIssues.push("Critical C: Drive Capacity");
+            if (m.sysview.av && m.sysview.av.impact && m.sysview.av.impact.indexOf("HIGH") !== -1 && vmIssues.indexOf("Active AV Scanning Overhead") === -1) vmIssues.push("Active AV Scanning Overhead");
+        }
+
+        if (m.procs) {
+            for (var p = 0; p < Math.min(m.procs.length, 3); p++) {
+                var proc = m.procs[p];
+                if (!topProcsMap[proc.name]) topProcsMap[proc.name] = { count: 0, avgCpu: 0 };
+                topProcsMap[proc.name].count++;
+                topProcsMap[proc.name].avgCpu += (proc.cpu || 0);
+            }
+        }
+    }
+
+    safeSetText("rep-health", Math.round(sumHealth / count));
+    safeSetText("rep-samples", count);
+    safeSetText("rep-duration", ms[count - 1].uptime || "--");
+    safeSetText("rep-timestamp", report.GeneratedAt || "--");
+    safeSetText("rep-cpu-avg", Math.round(sumCpu / count));
+    safeSetText("rep-mem-avg", Math.round(sumMem / count));
+
+    drawReportChart("rep-cpu-svg", cpuData, 100);
+    drawReportChart("rep-mem-svg", memData, 100);
+
+    var vmEl = document.getElementById("rep-vm-events");
+    if (vmEl) {
+        if (vmIssues.length > 0) {
+            var h = "⚠️ <b style='color:var(--accent-red)'>Physical Profile Risks Identified:</b><br><ul style='padding-left:15px; margin-top:10px;'>";
+            for (var j = 0; j < vmIssues.length; j++) h += "<li>" + vmIssues[j] + "</li>";
+            h += "</ul>";
+            vmEl.innerHTML = h;
+        } else {
+            vmEl.innerHTML = "✅ <b style='color:var(--accent-green)'>Optimal Physical Profile:</b><br>No significant infrastructure delays detected.";
+        }
+    }
+
+    var tpEl = document.getElementById("rep-top-procs");
+    if (tpEl) {
+        var sorted = [];
+        for (var name in topProcsMap) sorted.push({ name: name, freq: topProcsMap[name].count, cpu: topProcsMap[name].avgCpu / topProcsMap[name].count });
+        sorted.sort((a, b) => b.cpu - a.cpu);
+
+        var tpH = "";
+        for (var k = 0; k < Math.min(sorted.length, 6); k++) {
+            var s = sorted[k];
+            tpH += `<div style="background:var(--bg-card); padding:15px; border-radius:12px; border:1px solid var(--border-light); transition:transform 0.2s;">
+                <div style="font-weight:800; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-main);">${s.name}</div>
+                <div style="font-size:0.6rem; color:var(--accent-blue); font-weight:700; margin-top:6px;">AVG LOAD: ${s.cpu.toFixed(1)}%</div>
+            </div>`;
+        }
+        tpEl.innerHTML = tpH;
+    }
+    // NEW: Render AI Heuristic Insights with Timeline & Search
+    var aiEl = document.getElementById("rep-ai-insights");
+    if (aiEl) {
+        window.currentAILogs = report.aiLogs || [];
+        // Switch layout to a clear timeline list
+        aiEl.style.display = "flex";
+        aiEl.style.flexDirection = "column";
+        aiEl.style.gap = "0px";
+        aiEl.style.position = "relative";
+        renderAITimeline(window.currentAILogs);
+    }
+
+    renderOpenFinForensics(report);
+    console.log("TraderSynth Report Viewer: Rendering complete.");
+}
+
+function renderAITimeline(logs) {
+    var aiEl = document.getElementById("rep-ai-insights");
+    if (!aiEl) return;
+
+    if (!logs || logs.length === 0) {
+        aiEl.innerHTML = `<div style="opacity:0.3; font-size:0.8rem; text-align:center; padding-top:40px; width:100%;">
+            No AI events match this trace window.
+        </div>`;
+        return;
+    }
+
+    var aiH = `<div style="position:absolute; left:125px; top:10px; bottom:10px; width:2px; background:var(--border-light); z-index:0;"></div>`;
+    logs.forEach(log => {
+        aiH += `
+            <div class="ai-timeline-row" style="display:flex; align-items:flex-start; margin-bottom:15px; position:relative; z-index:1;">
+                <div style="width:110px; text-align:right; font-size:0.75rem; color:var(--text-dim); opacity:0.6; font-family:monospace; padding-right:15px; padding-top:2px;">
+                    ${log.ts}
+                </div>
+                <div style="width:10px; height:10px; border-radius:50%; background:var(--accent-red); border:3px solid var(--bg-main); margin-top:3px; box-shadow:0 0 10px rgba(var(--accent-blue-rgb), 0.4); flex-shrink:0;"></div>
+                <div style="flex:1; padding-left:20px;">
+                    <div style="background:var(--bg-overlay); padding:12px; border-radius:12px; border:1px solid var(--border-light);">
+                        <div style="font-size:0.65rem; font-weight:800; color:var(--accent-red); text-transform:uppercase; margin-bottom:5px;">AI DEVIATION</div>
+                        <div style="font-size:0.75rem; color:var(--text-main); line-height:1.4;">${log.msg}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    aiEl.innerHTML = aiH;
+}
+
+function filterAILogs() {
+    var input = document.getElementById("ai-search-input");
+    if (!input || !window.currentAILogs) return;
+    var query = input.value.toLowerCase();
+
+    var filtered = window.currentAILogs.filter(log => {
+        return log.msg.toLowerCase().includes(query) || log.ts.toLowerCase().includes(query);
+    });
+
+    renderAITimeline(filtered);
+}
+
+function drawReportChart(id, data, max) {
+    var svg = document.getElementById(id);
+    if (!svg) return;
+    var w = 300, h = 100, l = data.length;
+    if (l < 2) return;
+
+    var pts = "";
+    for (var i = 0; i < l; i++) {
+        var x = (i / (l - 1)) * w;
+        var y = h - (Math.min(data[i], max) / max) * 90 - 5;
+        pts += (i === 0 ? "M " : " L ") + x + " " + y;
+    }
+
+    var line = svg.querySelector(".spark-path");
+    var fill = svg.querySelector(".rep-fill");
+
+    if (line) line.setAttribute("d", pts);
+    if (fill) fill.setAttribute("d", pts + " L " + w + " " + h + " L 0 " + h + " Z");
+}
+
+const definitions = {
+    health: {
+        title: "TRADER HEALTH SCORE CALCULATION",
+        text: "The score represents the 'deterministic stability' of the system over the trace duration. It starts at 100 and is reduced based on: (1) Core CPU load (1 point per 4% load), (2) Memory Pressure (25-point penalty if RAM > 85%), (3) Forensic Hazard Markers (20-point penalty for zombie processes, high kernel latency, or SMP synchronization delays). Range: 100-80 (Optimal), 79-60 (Moderate Contention), <60 (Critical Instability)."
+    }
+};
+
+function showDef(type) {
+    const def = definitions[type];
+    if (!def) return;
+    document.getElementById("modal-title").textContent = def.title;
+    document.getElementById("modal-body").textContent = def.text;
+    document.getElementById("info-modal").style.display = "block";
+}
+
+function renderOpenFinForensics(report) {
+    var el = document.getElementById("rep-ofin-forensics");
+    if (!el) return;
+
+    var lastMetric = (report.Metrics && report.Metrics.length > 0) ? report.Metrics[report.Metrics.length - 1] : null;
+    if (!lastMetric) return;
+
+    var forensicData = lastMetric.forensics || { events: [], dumps: [] };
+    
+    // Process aggregation across entire trace
+    var ofinProcMap = {};
+    for (var i = 0; i < report.Metrics.length; i++) {
+        var m = report.Metrics[i];
+        if (m.openfin && m.openfin.processes) {
+            for (var p = 0; p < m.openfin.processes.length; p++) {
+                var proc = m.openfin.processes[p];
+                if (!ofinProcMap[proc.pid]) {
+                    ofinProcMap[proc.pid] = { 
+                        name: proc.name, 
+                        pid: proc.pid, 
+                        maxHandles: 0, 
+                        maxThreads: 0, 
+                        peakCpu: 0,
+                        status: proc.status || "Unknown",
+                        uptime: proc.uptime || 0
+                    };
+                }
+                var entry = ofinProcMap[proc.pid];
+                if (proc.handles > entry.maxHandles) entry.maxHandles = proc.handles;
+                if (proc.threads > entry.maxThreads) entry.maxThreads = proc.threads;
+                if (proc.cpu > entry.peakCpu) entry.peakCpu = proc.cpu;
+                if (proc.status) entry.status = proc.status; 
+                if (proc.uptime) entry.uptime = proc.uptime;
+            }
+        }
+    }
+
+    var h = `
+        <table style="width:100%; border-collapse:collapse; font-size:0.75rem; color:var(--text-dim); margin-bottom:20px; min-width:800px;">
+            <thead style="text-align:left; border-bottom:1px solid var(--border-light);">
+                <tr>
+                    <th style="padding:10px 5px;">PROCESS</th>
+                    <th style="padding:10px 5px;">PID</th>
+                    <th style="padding:10px 5px;">STATUS</th>
+                    <th style="padding:10px 5px;">PEAK CPU</th>
+                    <th style="padding:10px 5px;">PEAK HANDLES</th>
+                    <th style="padding:10px 5px;">PEAK THREADS</th>
+                    <th style="padding:10px 5px;">UPTIME</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    var sortedPids = Object.keys(ofinProcMap).sort((a,b) => ofinProcMap[b].peakCpu - ofinProcMap[a].peakCpu);
+    for (var k = 0; k < sortedPids.length; k++) {
+        var p = ofinProcMap[sortedPids[k]];
+        var statusColor = (p.status === "Responding") ? "var(--accent-green)" : "var(--accent-red)";
+        h += `
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:8px 5px; font-weight:700; color:var(--text-main);">${p.name}</td>
+                <td style="padding:8px 5px;">${p.pid}</td>
+                <td style="padding:8px 5px; color:${statusColor}; font-weight:bold;">${p.status}</td>
+                <td style="padding:8px 5px;">${p.peakCpu.toFixed(1)}%</td>
+                <td style="padding:8px 5px;">${p.maxHandles}</td>
+                <td style="padding:8px 5px;">${p.maxThreads}</td>
+                <td style="padding:8px 5px;">${Math.floor(p.uptime/60)}m ${p.uptime%60}s</td>
+            </tr>`;
+    }
+    h += `</tbody></table>`;
+
+    if (forensicData.events && forensicData.events.length > 0) {
+        h += `<div class="card-label-small" style="color:var(--accent-red); margin-bottom:10px; margin-top:20px;">Correlated Application Error Events</div>`;
+        for (var j = 0; j < forensicData.events.length; j++) {
+            var ev = forensicData.events[j];
+            h += `
+                <div style="background:rgba(255, 68, 68, 0.05); border:1px solid rgba(255, 68, 68, 0.2); border-radius:8px; padding:10px; margin-bottom:8px; font-size:0.7rem;">
+                    <span style="color:var(--accent-red); font-weight:bold;">${ev.ts}</span> | 
+                    <span style="color:var(--text-main); font-weight:bold;">ID ${ev.id}</span> | 
+                    <span style="color:var(--text-dim);">${ev.source}</span>
+                    <div style="margin-top:5px; line-height:1.4;">${ev.message}</div>
+                </div>`;
+        }
+    }
+
+    if (forensicData.dumps && forensicData.dumps.length > 0) {
+        h += `<div class="card-label-small" style="color:var(--accent-blue); margin-top:20px; margin-bottom:10px;">Detected Forensic Crash Dumps (.dmp)</div>`;
+        for (var l = 0; l < forensicData.dumps.length; l++) {
+            var d = forensicData.dumps[l];
+            h += `
+                <div style="background:var(--panel-inner-bg); border:1px solid var(--border-light); border-radius:8px; padding:10px; margin-bottom:8px; font-size:0.7rem; display:flex; justify-content:space-between;">
+                    <div>
+                        <b style="color:var(--text-main);">${d.name}</b><br>
+                        <span style="opacity:0.6;">${d.ts}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:var(--accent-blue); font-weight:bold;">${d.size}</span><br>
+                        <span style="font-size:0.6rem; opacity:0.4;">${d.path}</span>
+                    </div>
+                </div>`;
+        }
+    }
+
+    if (!sortedPids.length && (!forensicData.events || !forensicData.events.length) && (!forensicData.dumps || !forensicData.dumps.length)) {
+        h = `<div style="opacity:0.3; font-size:0.8rem; text-align:center; padding:20px;">No deep-dive OpenFin telemetry available for this trace window.</div>`;
+    }
+
+    el.innerHTML = h;
+}
